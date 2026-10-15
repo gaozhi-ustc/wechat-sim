@@ -1,0 +1,64 @@
+{
+  "result": "PASS",
+  "completed_utc": "2026-10-14T13:43:01.015490+00:00",
+  "host": "X79",
+  "archive_root": "/tmp/wxview92/wechat-sim",
+  "agent_md": {
+    "path": "/tmp/wxview92/wechat-sim/agent.md",
+    "bytes": 743532,
+    "lines": 4213,
+    "sha256": "86e388c80c581e69d082e6f62104a8a26b0d17d7f8b915cf7e5f1aacd6b168f7"
+  },
+  "copy_files": 13047,
+  "copy_bytes": 1756237762,
+  "byte_identical_copy_files": 12998,
+  "redacted_copy_files": 49,
+  "excluded_files": 66,
+  "excluded_reasons": {
+    "regenerable Python cache, not source/evidence": 36,
+    "local historical DB/backup excluded: no second ledger; original private path retained only": 2,
+    "Git metadata: original repository/index left untouched; status and staged source export recorded separately": 27,
+    "private credential/secret/lease/key file: NEVER read or copied": 1
+  },
+  "known_external_plans_copied": 2,
+  "all_available_source_files_accounted_for": true,
+  "all_copy_source_hashes_unchanged": true,
+  "all_copy_archive_hashes_match": true,
+  "original_git_status_and_index_unchanged": true,
+  "original_staged_7_versions_export_verified": true,
+  "all_directories_mode": "0700",
+  "all_files_mode": "0600",
+  "no_symlinks_or_caches_or_sqlite_or_credentials": true,
+  "sensitive_scan": {
+    "result": "PASS_WITH_SCOPE_LIMITS",
+    "text_files": 11501,
+    "synthetic_fixture_candidates_reviewed": 69,
+    "unclassified_candidates": 0,
+    "high_confidence_patterns": 0,
+    "limitations": [
+      "Does not OCR private screenshots or decode binaries/models; private archive is not for public/Git release.",
+      "Keyword matches are not proof of real secret; synthetic fixtures and file-hash keys require context classification.",
+      "Excluded original credential/lease/private key files never read; no value exported in this report."
+    ]
+  },
+  "manifest": {
+    "path": "/tmp/wxview92/wechat-sim/records/final-file-manifest.jsonl",
+    "files_hashed": 13073,
+    "sha256": "8a1b25b404b1741622fc669d817ee434c7b573376a2ae14716676b517a82a314",
+    "excluded_from_self_hash": [
+      "records/final-file-manifest.jsonl",
+      "records/final-verification.json"
+    ]
+  },
+  "total_regular_files": 13075,
+  "total_bytes": 1765658762,
+  "no_target_access_after_pause": true,
+  "project_state": "PAUSED",
+  "business_complete": false,
+  "known_history_gaps": [
+    "Full original human chat/tool transcripts outside locally retained handoff and evidence",
+    "Remote-only production DB/operation logs/credentials not retrieved",
+    "Previously deleted temporary artifacts cannot be reconstructed"
+  ],
+  "terminal": "All project children completed or confirmed killed; only this local archive verification shell remained and its exit0 must be collected before final response."
+}

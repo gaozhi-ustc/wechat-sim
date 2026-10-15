@@ -1,0 +1,398 @@
+[
+  {
+    "source": "/tmp/wxview92/__pycache__/pilot_controller_20261010T1350.cpython-310.pyc",
+    "relative_path": "__pycache__/pilot_controller_20261010T1350.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 14312
+  },
+  {
+    "source": "/tmp/wxview92/legacy_migration_source_20261012T021730.084114Z.sqlite3",
+    "relative_path": "legacy_migration_source_20261012T021730.084114Z.sqlite3",
+    "reason": "local historical DB/backup excluded: no second ledger; original private path retained only",
+    "size": 9805824
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/HEAD",
+    "relative_path": "upgrade_20261010T1529/.git/HEAD",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 21
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/config",
+    "relative_path": "upgrade_20261010T1529/.git/config",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 92
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/description",
+    "relative_path": "upgrade_20261010T1529/.git/description",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 73
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/hooks/applypatch-msg.sample",
+    "relative_path": "upgrade_20261010T1529/.git/hooks/applypatch-msg.sample",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 478
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/hooks/commit-msg.sample",
+    "relative_path": "upgrade_20261010T1529/.git/hooks/commit-msg.sample",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 896
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/hooks/fsmonitor-watchman.sample",
+    "relative_path": "upgrade_20261010T1529/.git/hooks/fsmonitor-watchman.sample",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 4655
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/hooks/post-update.sample",
+    "relative_path": "upgrade_20261010T1529/.git/hooks/post-update.sample",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 189
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/hooks/pre-applypatch.sample",
+    "relative_path": "upgrade_20261010T1529/.git/hooks/pre-applypatch.sample",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 424
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/hooks/pre-commit.sample",
+    "relative_path": "upgrade_20261010T1529/.git/hooks/pre-commit.sample",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 1643
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/hooks/pre-merge-commit.sample",
+    "relative_path": "upgrade_20261010T1529/.git/hooks/pre-merge-commit.sample",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 416
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/hooks/pre-push.sample",
+    "relative_path": "upgrade_20261010T1529/.git/hooks/pre-push.sample",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 1374
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/hooks/pre-rebase.sample",
+    "relative_path": "upgrade_20261010T1529/.git/hooks/pre-rebase.sample",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 4898
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/hooks/pre-receive.sample",
+    "relative_path": "upgrade_20261010T1529/.git/hooks/pre-receive.sample",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 544
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/hooks/prepare-commit-msg.sample",
+    "relative_path": "upgrade_20261010T1529/.git/hooks/prepare-commit-msg.sample",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 1492
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/hooks/push-to-checkout.sample",
+    "relative_path": "upgrade_20261010T1529/.git/hooks/push-to-checkout.sample",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 2783
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/hooks/update.sample",
+    "relative_path": "upgrade_20261010T1529/.git/hooks/update.sample",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 3650
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/index",
+    "relative_path": "upgrade_20261010T1529/.git/index",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 622
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/info/exclude",
+    "relative_path": "upgrade_20261010T1529/.git/info/exclude",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 240
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/objects/22/9cbe633dc60d36b5d15bf04369017c9e2cc0c1",
+    "relative_path": "upgrade_20261010T1529/.git/objects/22/9cbe633dc60d36b5d15bf04369017c9e2cc0c1",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 10797
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/objects/31/a01818a86e6d38b8e46da3217215de575c56bf",
+    "relative_path": "upgrade_20261010T1529/.git/objects/31/a01818a86e6d38b8e46da3217215de575c56bf",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 249
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/objects/42/57e7f850443aeab12120a3d87d6e4a58a16bac",
+    "relative_path": "upgrade_20261010T1529/.git/objects/42/57e7f850443aeab12120a3d87d6e4a58a16bac",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 778
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/objects/4c/d8d86e50ac629d7bbaac2f0633da8f80382e73",
+    "relative_path": "upgrade_20261010T1529/.git/objects/4c/d8d86e50ac629d7bbaac2f0633da8f80382e73",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 751
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/objects/53/e69040b471b6c13dfab022522bf2426f2a7640",
+    "relative_path": "upgrade_20261010T1529/.git/objects/53/e69040b471b6c13dfab022522bf2426f2a7640",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 5547
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/objects/95/05cb58a85bbfded2765c38f234a6709c5595e6",
+    "relative_path": "upgrade_20261010T1529/.git/objects/95/05cb58a85bbfded2765c38f234a6709c5595e6",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 4515
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/objects/9c/df652392322dd3a97d53cfae19a5297aee13e1",
+    "relative_path": "upgrade_20261010T1529/.git/objects/9c/df652392322dd3a97d53cfae19a5297aee13e1",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 8518
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/objects/c7/1296f52781e640fc60089bb811310e321f22a2",
+    "relative_path": "upgrade_20261010T1529/.git/objects/c7/1296f52781e640fc60089bb811310e321f22a2",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 88
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/.git/objects/ea/4ec7929f3b26d992d09406a1c518378740e27e",
+    "relative_path": "upgrade_20261010T1529/.git/objects/ea/4ec7929f3b26d992d09406a1c518378740e27e",
+    "reason": "Git metadata: original repository/index left untouched; status and staged source export recorded separately",
+    "size": 5948
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 32937
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_batch.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_batch.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 45682
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_continuation.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_continuation.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 7804
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_continuation_origin.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_continuation_origin.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 7650
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_db_direct_automation_20261013.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_db_direct_automation_20261013.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 71537
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_db_forward_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_db_forward_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 25253
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_db_nosend_calibration_20261013.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_db_nosend_calibration_20261013.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 36740
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_db_ocr_bridge_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_db_ocr_bridge_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 42522
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_db_ocr_flow_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_db_ocr_flow_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 14556
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_db_ocr_native_adapter_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_db_ocr_native_adapter_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 16010
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_db_ocr_native_rows_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_db_ocr_native_rows_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 14528
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_db_ocr_proof_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_db_ocr_proof_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 6535
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_db_ocr_real_probe_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_db_ocr_real_probe_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 12009
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_db_ocr_vision_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_db_ocr_vision_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 44455
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_db_round_store_20261013.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_db_round_store_20261013.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 37896
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_db_store_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_db_store_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 40135
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_db_ui_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_db_ui_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 37974
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_db_x11_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_db_x11_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 21796
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_recovery.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_recovery.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 24904
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/controller_sender_v2.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/controller_sender_v2.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 11980
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/test_continuation_flow.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/test_continuation_flow.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 39627
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/test_continuation_origin.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/test_continuation_origin.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 19714
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/test_continuation_records.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/test_continuation_records.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 25402
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/test_continuation_scope.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/test_continuation_scope.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 11619
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/test_continuation_session.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/test_continuation_session.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 47806
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/test_controller.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/test_controller.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 21523
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/test_controller_batch.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/test_controller_batch.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 57653
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/test_controller_db_direct_automation_20261013.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/test_controller_db_direct_automation_20261013.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 44861
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/test_controller_db_forward_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/test_controller_db_forward_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 50482
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/test_controller_db_ocr_bridge_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/test_controller_db_ocr_bridge_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 83896
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/test_controller_db_ocr_native_adapter_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/test_controller_db_ocr_native_adapter_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 35278
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/test_controller_db_ocr_native_rows_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/test_controller_db_ocr_native_rows_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 26253
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/test_controller_db_store_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/test_controller_db_store_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 65055
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/test_controller_db_ui_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/test_controller_db_ui_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 59468
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/__pycache__/test_controller_db_x11_20261012.cpython-310.pyc",
+    "relative_path": "upgrade_20261010T1529/__pycache__/test_controller_db_x11_20261012.cpython-310.pyc",
+    "reason": "regenerable Python cache, not source/evidence",
+    "size": 52721
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/lease_token",
+    "relative_path": "upgrade_20261010T1529/lease_token",
+    "reason": "private credential/secret/lease/key file: NEVER read or copied",
+    "size": 43
+  },
+  {
+    "source": "/tmp/wxview92/upgrade_20261010T1529/ledger_remote_backup_20261010T1559.sqlite3",
+    "relative_path": "upgrade_20261010T1529/ledger_remote_backup_20261010T1559.sqlite3",
+    "reason": "local historical DB/backup excluded: no second ledger; original private path retained only",
+    "size": 163840
+  }
+]

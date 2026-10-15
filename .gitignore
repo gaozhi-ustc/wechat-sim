@@ -1,0 +1,9 @@
+# Live run code, evidence screenshots, ledgers and remote logs (kept local)
+p1_live/
+
+# Credential / session material
+xixi
+
+# Python caches
+__pycache__/
+*.pyc

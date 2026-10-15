@@ -1,0 +1,135 @@
+{
+  "scope": "Offline fixed-layout visual classification only; no OCR and no input",
+  "python": "3.13.5",
+  "opencv": "4.13.0",
+  "pillow": "12.3.0",
+  "numpy": "2.3.5",
+  "cases_passed": 14,
+  "cases_total": 14,
+  "real_frames": 11,
+  "synthetic_cases": 3,
+  "timing": {
+    "unit": "ms",
+    "runs": 210,
+    "p50": 3.116,
+    "p95": 3.654,
+    "min": 2.804,
+    "max": 4.934,
+    "excluded": [
+      "image loading",
+      "screen capture",
+      "OCR",
+      "window validation",
+      "logging",
+      "UI latency",
+      "input",
+      "ledger"
+    ]
+  },
+  "limits": [
+    "Same fixed 770x610 panel and original templates; not an independent validation set.",
+    "Not proof of recipient, full-list top, off-screen selection or owned active window.",
+    "Live code must check panel ownership, current recipient binding and dispatch ledger.",
+    "No claim about target-machine speed, live success rate or delivery."
+  ],
+  "results": [
+    {
+      "file": "evidence/p0_explore/06_fav_panel.png",
+      "kind": "real_archive_frame",
+      "expected": "BASELINE_VISUAL",
+      "observed": "BASELINE_VISUAL",
+      "passed": true
+    },
+    {
+      "file": "evidence/p0_explore/07_fav_selected.png",
+      "kind": "real_archive_frame",
+      "expected": "FIRST_SELECTED_VISUAL",
+      "observed": "FIRST_SELECTED_VISUAL",
+      "passed": true
+    },
+    {
+      "file": "evidence/p0_explore/08_fav_selected_nohover.png",
+      "kind": "real_archive_frame",
+      "expected": "FIRST_SELECTED_VISUAL",
+      "observed": "FIRST_SELECTED_VISUAL",
+      "passed": true
+    },
+    {
+      "file": "evidence/run_20261014T171246_nosend/07_favorites.png",
+      "kind": "real_archive_frame",
+      "expected": "BASELINE_VISUAL",
+      "observed": "BASELINE_VISUAL",
+      "passed": true
+    },
+    {
+      "file": "evidence/run_20261014T171246_nosend/08_selected.png",
+      "kind": "real_archive_frame",
+      "expected": "FIRST_SELECTED_VISUAL",
+      "observed": "FIRST_SELECTED_VISUAL",
+      "passed": true
+    },
+    {
+      "file": "evidence/run_20261014T171331_send/07_favorites.png",
+      "kind": "real_archive_frame",
+      "expected": "BASELINE_VISUAL",
+      "observed": "BASELINE_VISUAL",
+      "passed": true
+    },
+    {
+      "file": "evidence/run_20261014T171331_send/08_selected.png",
+      "kind": "real_archive_frame",
+      "expected": "FIRST_SELECTED_VISUAL",
+      "observed": "FIRST_SELECTED_VISUAL",
+      "passed": true
+    },
+    {
+      "file": "evidence/run_20261014T171331_send/04_contacts.png",
+      "kind": "real_archive_frame",
+      "expected": "UNKNOWN",
+      "observed": "UNKNOWN",
+      "passed": true
+    },
+    {
+      "file": "evidence/run_20261014T171331_send/05_profile.png",
+      "kind": "real_archive_frame",
+      "expected": "UNKNOWN",
+      "observed": "UNKNOWN",
+      "passed": true
+    },
+    {
+      "file": "evidence/run_20261014T171331_send/06_chat.png",
+      "kind": "real_archive_frame",
+      "expected": "UNKNOWN",
+      "observed": "UNKNOWN",
+      "passed": true
+    },
+    {
+      "file": "evidence/run_20261014T171331_send/09_after_send_evidence_only.png",
+      "kind": "real_archive_frame",
+      "expected": "UNKNOWN",
+      "observed": "UNKNOWN",
+      "passed": true
+    },
+    {
+      "file": "synthetic/two_checked",
+      "kind": "synthetic",
+      "expected": "UNKNOWN",
+      "observed": "UNKNOWN",
+      "passed": true
+    },
+    {
+      "file": "synthetic/selected_but_send_disabled",
+      "kind": "synthetic",
+      "expected": "UNKNOWN",
+      "observed": "UNKNOWN",
+      "passed": true
+    },
+    {
+      "file": "synthetic/not_all_favorites",
+      "kind": "synthetic",
+      "expected": "UNKNOWN",
+      "observed": "UNKNOWN",
+      "passed": true
+    }
+  ]
+}

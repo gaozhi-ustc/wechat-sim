@@ -1,0 +1,29 @@
+{
+  "state": "PAUSED_HANDOFF_ONLY",
+  "authority": "msg_mv84uv9r7cdtmlcumwi",
+  "children": {
+    "agent_903dbe167082": "completed/DONE_WITH_CONCERNS: viewport is blocked candidate, not approved layout",
+    "agent_92fc06595bc3": "completed/DONE_WITH_CONCERNS: tail local tests completed, independent review cancelled, not deployed",
+    "agent_22705daf6ac6": "completed: read-only runtime recipe, no files/target operations",
+    "agent_4458d84334ce": "killed/exit1 at pause: launcher four files retained, final validation/independent approval absent",
+    "agent_468518b599bb": "killed/exit1 at pause: no final plan path",
+    "agent_6424235a6037": "killed/exit1 at pause: no independent tail verdict",
+    "agent_de36badc4a6b": "previously killed/exit1: performance work not completed/deployed"
+  },
+  "local_entities_observation": "ListEntities(status=running) at tool-labelled 2026-10-14 21:33:13 returned none. Archive-copy completed exit0. Earlier broad regex inspection terminated without artifacts. Bounded sensitive scan completed exit0. Final local integrity verification is the only remaining archival command and must be collected before final reply.",
+  "last_target_evidence": {
+    "path": "snapshot/ocr_first_terminal_readonly_1791982429309891739.jsonl",
+    "epoch": 1791982433.8309324,
+    "scope": "historical pre-pause locked read-only observation; not refreshed after pause",
+    "all_sessions_closed": true,
+    "third_session_closed": true,
+    "lease_empty": true,
+    "full_no_unresolved": true,
+    "current_request_send_clicked": 0,
+    "automatic_flow_started": false,
+    "cp_sessions_remaining": 0
+  },
+  "target_after_pause": "No SSH/UI/OCR/Send/deployment/install/DB operation. Original paths and production ledger preserved. No automatic delegation to another session.",
+  "business_complete": false,
+  "archive_complete": "See final-verification.json for actual completion evidence"
+}
