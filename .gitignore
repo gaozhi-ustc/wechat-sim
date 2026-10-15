@@ -1,5 +1,8 @@
-# Live run code, evidence screenshots, ledgers and remote logs (kept local)
-p1_live/
+# p1_live: only source code and UI templates are tracked; evidence screenshots,
+# ledgers, remote logs and run reports (contact names / Weixin IDs) stay local
+p1_live/*
+!p1_live/*.py
+!p1_live/templates/
 
 # Credential / session material
 xixi
