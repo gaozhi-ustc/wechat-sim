@@ -1,9 +1,12 @@
 """Supervisor for long batch_v2 --send runs: restart after *safe* stops, resuming near the stop point.
 
 Safety: never restarts if the ledger has PREPARED/DISPATCHING/UNKNOWN rows; waits until WeChat shows only
-its main window (e.g. an incoming-call popup is gone) before restarting; gives up after repeated no-progress.
+its main window (e.g. an incoming-call popup is gone) before restarting; gives up after repeated no-progress
+or when batch_v2 stops with a 'HALT:' reason (e.g. the first favorite changed mid-campaign).
 Usage: python3 -I supervise.py [--first-resume N]   (N = ordinal of the last processed / currently selected row)
+Every run continues from the currently selected Contacts row (--from-current); never from the list top.
 """
+import fcntl
 import json
 import os
 import sqlite3
@@ -41,9 +44,12 @@ def wait_clean(limit_s=3600):
     q = wxfast.XQ()
     t0 = time.time()
     while time.time() - t0 < limit_s:
-        o = q.observe(wxio.wechat_pid())
-        if len(o['wechat']) == 1:
-            return True
+        try:
+            o = q.observe(wxio.wechat_pid())
+            if len(o['wechat']) == 1:
+                return True
+        except wxio.Stop:           # e.g. main window hidden by an incoming call: keep waiting
+            pass
         time.sleep(10)
     return False
 
@@ -55,6 +61,12 @@ def run_summary(d):
     stop = next((e['reason'] for e in ev if e['kind'] == 'stop'), None)
     return (max(ords) if ords else None), tail, stop
 
+
+_sup_lock = open(LEDGER + '.supervise.lock', 'w')
+try:
+    fcntl.flock(_sup_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except BlockingIOError:
+    sys.exit('another supervise.py is already running for this ledger; not starting')
 
 resume = int(sys.argv[sys.argv.index('--first-resume') + 1]) if '--first-resume' in sys.argv else 0
 best = resume
@@ -75,6 +87,8 @@ for n in range(MAX_RESTARTS):
     log(kind='exit', n=n, rc=rc, run=str(d), last_ordinal=last, tail=tail, stop=stop)
     if tail and tail.get('complete') is not None:
         log(kind='done', tail=tail); break
+    if stop and stop.startswith('HALT:'):
+        log(kind='halt', reason=stop); break
     if last is not None and last > best + 2:
         best, no_progress = last, 0
     else:

@@ -7,6 +7,11 @@ Per row: click -> profile OCR x1 -> classify (self / not-ordinary / already sent
   -> panel exit -> back to Contacts tab -> cheap rec-only check of next row label.
 Tail proof: list pixels unchanged after scrolling AND ordered occurrences == header count.
 Zero LLM calls. Usage: python3 -I batch_v2.py --send | --no-send [--limit N]
+
+Campaign (REQUEST_ID): WX_REQUEST_ID unset or 'auto' -> read the title of the first favorite once per run
+(Favorites tab) and look it up in the ledger's campaigns table: same title -> same REQUEST_ID (dedupe, resume);
+new title -> new REQUEST_ID (started from the current position like any run). Each send also checks the panel's first
+item title against the campaign title. An explicit WX_REQUEST_ID keeps the old fixed-ID behaviour.
 """
 import difflib
 import unicodedata
@@ -22,7 +27,8 @@ from fast_v2 import (HERE, wxio, wxfast, Stop, need, Unknown, Ledger, absbox, ab
                      TPL, MAIN_SIZE, PANEL_SIZE, P_HEADER, P_SEND_CLICK, W_ACTIVATE, W_AVATAR,
                      W_CONTACTS_TAB, REQUEST_ID, ACCOUNT, SELF_NAMES, PROD_LOCK, LEDGER, Stage, FastEngine,
                      chat_visual, panel_visual, read_header_fast, perceive_profile_fast, WAITS)
-from ocr_mvp_v1 import W_LIST
+from ocr_mvp_v1 import W_LIST, GREEN_ROW, close
+import ocr_mvp_v1 as v1
 import numpy as np  # noqa: E402  (after fast_v2 puts the OCR site on sys.path)
 import cv2  # noqa: E402
 
@@ -31,6 +37,11 @@ SCROLL_NOTCHES = 4
 WAITS.update(scroll=(0.35, 3.0))
 WAITS['chat'] = (0.30, 2.5)
 SYSTEM_HINTS = ('微信团队', '文件传输', 'Weixin Team', 'File Transfer')
+AUTO_RID = os.environ.get('WX_REQUEST_ID', '') in ('', 'auto')
+W_FAV_TAB = (31, 211)                  # sidebar Favorites icon
+W_FAV_ALL_PX = (250, 140)              # 'All Favorites' row: green when selected
+W_FAV_VIEW = (61, 33, 1027, 200)       # search box + list header + first card of the Favorites tab
+P_FIRST_TITLE = (265, 92, 360, 22)     # panel-relative title line of the first favorite (rec-only)
 
 
 _CONFUSE = str.maketrans({'o': '0', 'l': '1', 'i': '1', '|': '1'})
@@ -48,6 +59,26 @@ _WXFOLD = str.maketrans({'o': '0', 'l': '1', 'i': '1', '|': '1', 's': '5', 'z': 
 def fold_wxid(w):
     """OCR-robust Weixin ID key: case, '_'/'-' and confusable glyphs folded (dedupe lookups only)."""
     return (w or '').lower().translate(_WXFOLD).replace('_', '').replace('-', '')
+
+
+def title_prefix_ratio(short, full):
+    """similarity of an OCR'd (possibly '…'-truncated) title line to the full campaign title."""
+    a, b = canon(short), canon(full)
+    return difflib.SequenceMatcher(None, a, b[:len(a)]).ratio() if a and b else 0.0
+
+
+def resolve_campaign(ledger, title, create):
+    """(request_id, is_new) for the favorite title; same content (fuzzy, OCR-tolerant) reuses its campaign."""
+    db = ledger.db
+    db.execute('CREATE TABLE IF NOT EXISTS campaigns(request_id TEXT PRIMARY KEY, account TEXT, title TEXT, created REAL)')
+    for rid, t in db.execute('SELECT request_id,title FROM campaigns WHERE account=? ORDER BY created DESC', (ACCOUNT,)):
+        a, b = canon(t), canon(title)
+        if a == b or difflib.SequenceMatcher(None, a, b).ratio() >= 0.85:
+            return rid, False
+    rid = 'fav_%s_%s' % (ACCOUNT, time.strftime('%Y%m%dT%H%M%S'))
+    if create:
+        db.execute('INSERT INTO campaigns VALUES(?,?,?,?)', (rid, ACCOUNT, title, time.time()))
+    return rid, True
 
 
 def similar(a, b):
@@ -149,14 +180,14 @@ def link_pages(seen, page_rows):
 
     def same(a, b):
         return ink_match(a['sig'], b['sig']) or bool(canon(a['name']) and canon(b['name']) and similar(a['name'], b['name']))
-    # seen[-k:] must equal comp[o:o+k] with k>=2 (o=0) or k>=3 (o=1,2: top page rows may be shadowed by the
-    # sticky header); rows after o+k are new.
-    for o in (0, 1, 2):
+    # seen[-k:] must equal comp[o:o+k] with k>=2 (o=0) or k>=3 (o>=1: top page rows may be shadowed by the
+    # sticky header, or after an in-place relink the processed rows sit mid-page); rows after o+k are new.
+    for o in range(len(comp)):
         for k in range(min(len(seen), len(comp) - o), 1 if o == 0 else 2, -1):
             if all(same(seen[-k + j], page_rows[comp[o + j]]) for j in range(k)):
                 return comp[o + k] if o + k < len(comp) else len(page_rows)
     # fallback: the last seen row may be unreadable (no name, odd glyphs); anchor on >=3 rows before it
-    for o in (0, 1, 2):
+    for o in range(len(comp)):
         for k in range(min(len(seen) - 1, len(comp) - o - 1), 2, -1):
             if all(same(seen[-k - 1 + j], page_rows[comp[o + j]]) for j in range(k)):
                 n = o + k + 1
@@ -488,6 +519,20 @@ class BatchEngine(FastEngine):
             raise Unknown('panel header not bound to recipient: %r' % header)
         rec['header'] = header
 
+        if AUTO_RID:
+            st = Stage('content_check')
+            pt = self.rec_label(st, f['im'], absbox(pg, P_FIRST_TITLE))
+            r = title_prefix_ratio(pt, self.fav_title)
+            if r < 0.8:
+                st.n['fallbacks'] += 1
+                pt = ' '.join(t[0] for t in self.ocr_box(st, f['im'], absbox(pg, (255, 85, 380, 36))))
+                r = title_prefix_ratio(pt, self.fav_title)
+            rec['stages'].append(self.finish_stage(st, title=pt, ratio=round(r, 3)))
+            if r < 0.5:
+                raise Stop('HALT: first favorite changed during campaign %s: %r vs %r' % (REQUEST_ID, pt, self.fav_title))
+            if r < 0.8:
+                raise Unknown('panel first favorite title not confirmed: %r' % pt)
+
         if not self.send:
             st = Stage('cancel_no_send')
             self.act(st, f, abspt(pg, (520, 550)), 'cancel', pg)
@@ -533,6 +578,34 @@ class BatchEngine(FastEngine):
         if self.dispatched % 25 == 1:
             self.dbg('after_send_%04d' % rec['ordinal'], f['im'], g)
         return self.back_to_list(rec, g, f)
+
+    def campaign(self, g, f, ledger):
+        """Favorites tab -> first favorite title -> REQUEST_ID (see module doc)."""
+        global REQUEST_ID
+        st = Stage('campaign')
+        self.act(st, f, abspt(g, W_FAV_TAB), 'favorites-tab', g)
+
+        def all_fav(f):
+            self.main_active(f)
+            if not close(f['im'].getpixel(abspt(g, W_FAV_ALL_PX)), GREEN_ROW, 12):
+                raise Unknown('All Favorites not selected')
+            return {}
+        f, _ = self.poll(st, 'contacts', all_fav)
+        texts = self.ocr_box(st, f['im'], absbox(g, W_FAV_VIEW))
+        flat = lambda t: re.sub(r'\s+', '', t[0])
+        rel = lambda t: (t[2][0] - g['x'], t[2][1] - g['y'])
+        search = any(flat(t) == 'SearchFavorites' for t in texts)
+        header = any(flat(t) == 'AllFavorites' and rel(t)[0] > 301 for t in texts)
+        first = [t for t in texts if 345 <= rel(t)[0] <= 375 and 100 <= rel(t)[1] <= 130]
+        self.dbg('favorites', f['im'], g)
+        need(search and header and len(first) == 1 and canon(first[0][0]),
+             'favorites view not at default/top: %r' % [t[0] for t in texts])
+        self.fav_title = first[0][0].strip()
+        rid, new = resolve_campaign(ledger, self.fav_title, create=self.send)
+        self.j.event(kind='campaign', title=self.fav_title, request=rid, new=new)
+        REQUEST_ID = v1.REQUEST_ID = rid
+        self.finish_stage(st, title=self.fav_title, request=rid, new=new)
+        return f
 
     def back_to_list(self, rec, g, f):
         st = Stage('return_to_list')
@@ -595,6 +668,8 @@ class BatchEngine(FastEngine):
         need(acc == ACCOUNT, 'wrong/unknown account: %r' % acc)
         f, _ = self.poll(st, 'popup_gone', self.main_active)
         self.cold = self.finish_stage(st, account=acc)
+        if AUTO_RID:
+            f = self.campaign(g, f, ledger)
 
         # Contacts tab, scroll to top, top proof.
         st = Stage('contacts_top' if not self.from_current else 'contacts_current')

@@ -1,6 +1,8 @@
 """result.md for the multi-run zhangchi-la batch: merge all send runs by Weixin ID, cross-check the ledger.
 
-Usage: python3 -I gen_result_remote.py <dir with batch_*_send/> <ledger_json> <supervise.jsonl> <out.md>
+Usage: python3 -I gen_result_remote.py <dir with batch_*_send/> <ledger_json> <supervise.jsonl> <out.md> [host] [title]
+ledger_json: [[op_key, state, intent, ...], ...] for the one REQUEST_ID being reported.
+Content title, REQUEST_ID, account and Contacts counts are taken from the run events / ledger.
 """
 import collections
 import json
@@ -10,6 +12,8 @@ import time
 from pathlib import Path
 
 base, ledger_json, sup_path, out = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]), Path(sys.argv[4])
+HOST = sys.argv[5] if len(sys.argv) > 5 else 'zhangchi-la（192.168.102.23）'
+TITLE = sys.argv[6] if len(sys.argv) > 6 else None      # runs with a fixed WX_REQUEST_ID have no campaign event
 PRIO = {'SEND_CLICKED': 9, 'UNKNOWN': 9, 'EXCLUDED_SELF': 5, 'EXCLUDED_NOT_ORDINARY': 5, 'EXCLUDED_UNAVAILABLE': 5,
         'SKIPPED_UNREADABLE_NAME': 2, 'SKIPPED_PRE_SEND': 1, 'NOT_ATTEMPTED_LIMIT': 1, 'ALREADY_SEND_CLICKED': 0}
 CN = {'SEND_CLICKED': '已发送（Send 点击成功）', 'ALREADY_SEND_CLICKED': '已在账本（之前已发送）',
@@ -25,12 +29,15 @@ esc = lambda s: str(s if s is not None else '').replace('|', '\\|').replace('\n'
 runs = sorted(p for p in base.glob('batch_*_send') if (p / 'events.jsonl').exists())
 merged, per_run, all_contacts = {}, [], []
 stage_sum = collections.defaultdict(lambda: [0, 0.0])
+titles, header_counts = [], []
 for run in runs:
     ev = [json.loads(l) for l in (run / 'events.jsonl').read_text().splitlines() if l.strip()]
     res = json.loads((run / 'result.json').read_text()) if (run / 'result.json').exists() else {}
     stages = {c['ordinal']: c.get('stages', []) for c in res.get('contacts', [])}
     start = next((e for e in ev if e['kind'] == 'start'), {})
     cs = [e for e in ev if e['kind'] == 'contact']
+    titles += [e['title'] for e in ev if e['kind'] == 'campaign']
+    header_counts += [e['header_count'] for e in ev if e['kind'] == 'stage' and e.get('header_count')]
     sends = {e.get('ordinal'): e['t'] for e in ev if e['kind'] == 'send_clicked'}
     for c in cs:
         c = dict(c, run=run.name, send_t=sends.get(c['ordinal']), stages=stages.get(c['ordinal'], []))
@@ -55,12 +62,13 @@ for run in runs:
                         end_reason=stop or ('到达列表末尾' if tail else '进程被结束/异常（无 stop 事件）')))
 
 recs = sorted(merged.values(), key=lambda c: c['t'])
+ledger = json.loads(ledger_json.read_text())
+REQUEST_ID, ACCOUNT = ledger[0][0].split('|')[:2] if ledger else ('?', '?')
 for c in recs:
-    if c['outcome'] == 'EXCLUDED_SELF' and (c.get('weixin_id') or '').lower() != 'assfox':
+    if c['outcome'] == 'EXCLUDED_SELF' and fold(c.get('weixin_id') or '') != fold(ACCOUNT):
         c['outcome'] = 'MISJUDGED_SELF'
         c['reason'] = '显示名与本人 ID 相同而被误判为本人（Weixin ID %s 不是本人），未发送' % c.get('weixin_id')
 by = collections.Counter(c['outcome'] for c in recs)
-ledger = json.loads(ledger_json.read_text())
 ledger_ids = {fold(r[0].split('|wxid:', 1)[1]) for r in ledger if r[1] == 'SEND_CLICKED'}
 dup_groups = collections.defaultdict(list)
 for r in ledger:
@@ -79,11 +87,11 @@ cyc = [c['cycle_ms'] for c in sent if c.get('cycle_ms')]
 tsc = [c['to_send_clicked_ms'] for c in sent if c.get('to_send_clicked_ms')]
 pct = lambda xs, q: sorted(xs)[min(len(xs) - 1, int(len(xs) * q))]
 
-L = ['# zhangchi-la（192.168.102.23）微信全量好友发送结果\n']
-L += ['- 账号：gaozhi（Weixin ID `assfox`）；DISPLAY=:1；微信 4.1.13.23；主窗口调整为已校准的 1088x770。',
-      '- 内容：每人发送当时原生收藏面板的第一条：《【5】PD必须分离？拆掉路障吞吐大文档！》（高志创业笔记 | gaozhi）。',
+L = ['# %s 微信全量好友发送结果\n' % HOST]
+L += ['- 账号 Weixin ID `%s`；DISPLAY=:1；主窗口为已校准的 1088x770。' % ACCOUNT,
+      '- 内容：每人发送当时原生收藏面板的第一条：%s。' % ('《%s》' % (TITLE or titles[0]) if TITLE or titles else '（运行事件中无标题记录）'),
       '- 方案：fast_v2_checked 批量版（`batch_v2.py` + 看护 `supervise.py`），运行期 LLM 调用为 0。每人依次：资料 OCR → Messages → 聊天标题核对 → 收藏面板零选基线 → 选第一条 → 面板收件人表头核对 → 先写账本意图 → 单次 Send。',
-      '- 批次 REQUEST_ID：`fast_v2_batch_zhangchi-la_assfox_20261014`；账本 `~/wechat_batch/ledger_assfox.sqlite3`（远端）。',
+      '- 批次 REQUEST_ID：`%s`。' % REQUEST_ID,
       '- 时间：%s → %s（本机 PDT），墙钟 %.1f 小时，其中各段实际运行合计 %.1f 小时，共 %d 段运行。' % (ts(t0), ts(t1), (t1 - t0) / 3600, active / 3600, len(per_run)),
       '- `SEND_CLICKED` 只表示原生 Send 点击成功返回并已落账，不代表对方已收到。运行期间看到部分会话提示“对方开启了朋友验证，你还不是他（她）朋友”，说明这些人已删除该账号，消息实际被拒收。本统计无法逐人区分。\n']
 
@@ -99,16 +107,22 @@ L.append('- **账本交叉核对**：账本 %s；账本中 SEND_CLICKED %d 人�
     sum(v for k, v in ledger_states.items() if k != 'SEND_CLICKED')))
 L.append('- **重复发送：%d 人收到了两次**，共 %d 条重复（见第二节）。账本 SEND_CLICKED 记录 %d 条 = 去重后 %d 人 + %d 条重复。' % (
     len(dups), sum(len(v) - 1 for v in dups), sum(ledger_states[k] for k in ('SEND_CLICKED',)), len(ledger_ids), sum(len(v) - 1 for v in dups)))
-L.append('- **通讯录规模**：开始时 Contacts 表头为 3175，结束时为 3155（运行期间减少 20 人）。另有 WeCom Contacts 76、My Enterprise 6 两个分组不在本次范围内。')
-L.append('- **覆盖**：最后一段连续两次滚动后列表不再变化，已到达列表末尾。由于中途改过行检测方案并多次从当前位置续接，日志序号是近似值（最后为 %d），不能与表头计数逐一对齐。去重以 Weixin ID 为准。' % max(c['ordinal'] for c in all_contacts))
+if header_counts:
+    L.append('- **通讯录规模**：开始时 Contacts 表头为 %d，结束时为 %d。WeCom Contacts、My Enterprise 等分组不在本次范围内。' % (header_counts[0], header_counts[-1]))
+L.append('- **覆盖**：%s日志序号是近似值（最后为 %d），续跑后不能与表头计数逐一对齐。去重以 Weixin ID 为准。' % (
+    '最后一段连续两次滚动后列表不再变化，已到达列表末尾。' if any(p['end_reason'] == '到达列表末尾' for p in per_run) else '**未确认到达列表末尾。**',
+    max(c['ordinal'] for c in all_contacts)))
 L.append('- **漏发**：跳过（未发送）共 %d 人，另有 %d 人被误判为本人而未发送，见第五节清单。原因包括 OCR 读错或读不出名字、面板与资料名不一致（含真正开错会话被拦下的情况）、页面加载超时等。所有核验都按“宁可漏发、不可错发”的原则设计。\n' % (by['SKIPPED_PRE_SEND'] + by['SKIPPED_UNREADABLE_NAME'], by['MISJUDGED_SELF']))
 
 L.append('## 二、重复发送（如实记录）\n')
-L.append('原因：同一人的 Weixin ID 在两次访问时被 OCR 读得不同（大小写、下划线丢失、1/l/0 混淆），而账本去重键直接使用 OCR 原文。全部发生在中途更换行检测方案、从第 0 行重新完整遍历的那一轮：它重访了第一轮已发送过的前约 490 人，其中这几人的 ID 读法与第一次不同，没被账本拦下。之后的去重查找已改为归一化比较（忽略大小写、`_`/`-`，并折叠 0/o、1/l/i 等易混字符）。\n')
-L.append('| # | 资料名 | 第一次（ID 读作 / 时间 / 运行） | 第二次（ID 读作 / 时间 / 运行） |')
-L.append('|---:|---|---|---|')
-for i, v in enumerate(dups, 1):
-    L.append('| %d | %s | `%s` / %s / %s | `%s` / %s / %s |' % (i, esc(v[0][1]), v[0][0], ts(v[0][3])[11:], v[0][2], v[1][0], ts(v[1][3])[11:], v[1][2]))
+if not dups:
+    L.append('本次无重复发送（按归一化 Weixin ID 去重）。\n')
+else:
+  L.append('原因：同一人的 Weixin ID 在两次访问时被 OCR 读得不同（大小写、下划线丢失、1/l/0 混淆），而账本去重键直接使用 OCR 原文。全部发生在中途更换行检测方案、从第 0 行重新完整遍历的那一轮：它重访了第一轮已发送过的前约 490 人，其中这几人的 ID 读法与第一次不同，没被账本拦下。之后的去重查找已改为归一化比较（忽略大小写、`_`/`-`，并折叠 0/o、1/l/i 等易混字符）。\n')
+  L.append('| # | 资料名 | 第一次（ID 读作 / 时间 / 运行） | 第二次（ID 读作 / 时间 / 运行） |')
+  L.append('|---:|---|---|---|')
+  for i, v in enumerate(dups, 1):
+      L.append('| %d | %s | `%s` / %s / %s | `%s` / %s / %s |' % (i, esc(v[0][1]), v[0][0], ts(v[0][3])[11:], v[0][2], v[1][0], ts(v[1][3])[11:], v[1][2]))
 L.append('')
 L.append('## 三、耗时统计\n')
 if cyc:
@@ -132,7 +146,7 @@ L.append('|---:|---|---|---|---|---|---:|---|')
 for i, p in enumerate(per_run, 1):
     L.append('| %d | %s | %s | %s | %s | %d（%s–%s） | %d | %s |' % (i, p['run'], ts(p['start'])[11:], ts(p['end'])[11:], p['mode'],
              p['processed'], p['first'], p['last'], p['sent'], esc((p['end_reason'] or '')[:110])))
-L.append('\n停止重启都由看护脚本自动完成。续跑时：前期从顶部逐页计数到断点；后期按用户要求改为从通讯录当前选中行往下接续，不再翻找。账本按 Weixin ID 去重，没有任何人被重复发送。\n')
+L.append('\n停止重启都由看护脚本自动完成，续跑时从通讯录当前选中行往下接续。账本按 Weixin ID 去重。\n')
 
 L.append('## 五、未发送清单（跳过 / 排除）\n')
 L.append('| # | 列表名（OCR） | 资料名 | Weixin ID | 结果 | 原因 |')
