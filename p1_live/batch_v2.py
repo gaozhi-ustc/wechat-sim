@@ -29,6 +29,7 @@ from fast_v2 import (HERE, wxio, wxfast, Stop, need, Unknown, Ledger, absbox, ab
                      chat_visual, panel_visual, read_header_fast, perceive_profile_fast, WAITS)
 from ocr_mvp_v1 import W_LIST, GREEN_ROW, close
 import ocr_mvp_v1 as v1
+import do_not_send
 import numpy as np  # noqa: E402  (after fast_v2 puts the OCR site on sys.path)
 import cv2  # noqa: E402
 
@@ -79,6 +80,21 @@ def resolve_campaign(ledger, title, create):
     if create:
         db.execute('INSERT INTO campaigns VALUES(?,?,?,?)', (rid, ACCOUNT, title, time.time()))
     return rid, True
+
+
+RELAXED = os.environ.get('WX_RELAXED_NAMES') == '1'   # retry pass: tolerate one-glyph OCR slips / unreadable names
+
+
+def loose(a, b):
+    """OCR-tolerant name match for the relaxed retry pass (identity still rests on the Weixin ID)."""
+    a, b = canon(a), canon(b)
+    if not a or not b:
+        return False
+    if a == b or difflib.SequenceMatcher(None, a, b).ratio() >= 0.5:
+        return True
+    if len(a) == len(b) and sum(x != y for x, y in zip(a, b)) <= 1:
+        return True
+    return min(len(a), len(b)) >= 2 and (a in b or b in a)
 
 
 def similar(a, b):
@@ -354,12 +370,23 @@ class BatchEngine(FastEngine):
             if similar(p['name'], lab):
                 rec['row_name_reread'] = lab
                 row = dict(row, name=lab)
-        if p['selected'] and not canon(p['name']) and not canon(row['name']):
+        if RELAXED and p['selected'] and (not canon(p['name']) or not canon(row['name']) or loose(p['name'], row['name'])):
+            rec['relaxed_association'] = True
+            row = dict(row, name=row['name'] if canon(row['name']) else p['name'])
+        elif p['selected'] and not canon(p['name']) and not canon(row['name']):
             # names made only of emoji/symbols: identity cannot be cross-checked -> never send, but not a fault
             rec.update(outcome='SKIPPED_UNREADABLE_NAME', reason='row and profile names unreadable (emoji/symbols)')
             return self.close_rec(rec, f)
-        if not p['selected'] or not (canon(p['name']) and similar(p['name'], row['name'])):
+        if not p['selected'] or not (rec.get('relaxed_association') or (canon(p['name']) and similar(p['name'], row['name']))):
             rec.update(outcome='SKIPPED_PRE_SEND', reason='row/profile association %r vs %r' % (row['name'], p['name']))
+            return self.close_rec(rec, f)
+        why = do_not_send.blocked(p['weixin_id'], p['name'], row['name'], p.get('nickname') or '')
+        if why:
+            rec.update(outcome='EXCLUDED_DO_NOT_SEND', reason=why)
+            return self.close_rec(rec, f)
+        why = self.exclude_recipient(p, row)          # subclass scope rules (e.g. starred / non-starred only)
+        if why:
+            rec.update(outcome='EXCLUDED_SCOPE', reason=why)
             return self.close_rec(rec, f)
         op_key = '%s|%s|wxid:%s' % (REQUEST_ID, ACCOUNT, p['weixin_id'])
         existing = ledger.state(op_key) or self.sent_folded().get(fold_wxid(p['weixin_id']))
@@ -376,6 +403,10 @@ class BatchEngine(FastEngine):
             rec.update(outcome='SKIPPED_PRE_SEND', reason=str(e)[:200])
             f = self.recover(g)
         return self.close_rec(rec, f)
+
+    def exclude_recipient(self, p, row):
+        """-> reason to leave this friend out of the batch (no send), or None. Default: everyone is in scope."""
+        return None
 
     def sent_folded(self):
         """folded Weixin ID -> ledger state, for every op of this batch (cached; refreshed after each dispatch)."""
@@ -440,15 +471,29 @@ class BatchEngine(FastEngine):
         f, p = self.profile_settled(st, f, p, rec['row'])
         self.act(st, f, p['messages'], 'profile-messages', g)
         try:
+            t_click, seen_t = time.time(), {}
+
             def chat_ready(f):
                 self.main_active(f)
                 ch = chat_visual(f['im'], g)
                 t = self.read_title(f['im'], g)
-                if not (canon(t) and (canon(p['name']) in canon(t) or similar(t, p['name']))):
+                strict = canon(t) and (canon(p['name']) in canon(t) or similar(t, p['name']))
+                if not strict and RELAXED:
+                    names = (p['name'], rec['row'].get('name', ''))
+                    last = getattr(self, 'last_chat_title', None)
+                    # never accept what still looks like the previously opened chat (stale-chat race)
+                    stale = last is not None and canon(t) == canon(last) and not any(loose(t, n) for n in names)
+                    settled = time.time() - t_click > 1.2 and seen_t.get('t') == t
+                    seen_t['t'] = t
+                    strict = not stale and (any(loose(t, n) for n in names) or (settled and canon(t) != canon(last or '')))
+                    if strict:
+                        rec['relaxed_title'] = t
+                if not strict:
                     raise Unknown('chat title %r not yet %r' % (t, p['name']))
                 ch['title'] = t
                 return ch
             f, ch = self.poll(st, 'chat', chat_ready)
+            self.last_chat_title = ch['title']
         except Stop as e:
             raise Unknown(str(e))
         rec['stages'].append(self.finish_stage(st))
@@ -500,13 +545,17 @@ class BatchEngine(FastEngine):
         st.n['ocr_calls'] += 1; self.ocr_calls += 1
         def ok(h):
             c, pre, nm = canon(h), canon('Sendfavoritesto'), canon(p['name'])
-            if not c.startswith(pre) or not nm:
+            if not c.startswith(pre) or (not nm and not RELAXED):
                 return False
             rest = c[len(pre):]
-            if nm in rest:
+            if nm and nm in rest:
                 return True
             # one-glyph OCR slips in the header (e.g. 令->合): allow for names >=3 chars, ratio >=0.75
             subst = len(rest) >= len(nm) and sum(a != b for a, b in zip(nm, rest[:len(nm)])) <= 1
+            if RELAXED and rest and (loose(rest, p['name']) or loose(rest, ch.get('title', ''))
+                                     or (not nm and canon(ch.get('title', '')) == rest)):
+                rec['header_fuzzy'] = 'relaxed'
+                return True
             if len(nm) >= 3 and (subst or difflib.SequenceMatcher(None, nm, rest[:len(nm) + 2]).ratio() >= 0.75):
                 rec['header_fuzzy'] = True
                 return True
@@ -682,10 +731,11 @@ class BatchEngine(FastEngine):
             header_count = page['count']
             comp = [i for i, r in enumerate(page['rows']) if r['complete']]
             sel = [i for i in comp if row_selected(f['im'], g, page['rows'][i]['band'])]
-            pre = [page['rows'][i] for i in comp if sel and i <= sel[0]]
+            redo = 0 if getattr(self, 'redo_current', False) else 1   # re-process the selected row (idempotent flows)
+            pre = [page['rows'][i] for i in comp if sel and i < sel[0] + redo]
             self.seen.extend(dict(name=r['name'], avatar=r['avatar'], sig=r['sig']) for r in pre)
-            self.ordinal_offset = self.ordinal_base - len(pre)
-            self.current_start = (sel[0] + 1) if sel else (comp[0] if comp else len(page['rows']))
+            self.ordinal_offset = self.ordinal_base - len(pre) - (1 - redo if sel else 0)
+            self.current_start = (sel[0] + redo) if sel else (comp[0] if comp else len(page['rows']))
             self.current_prev_band = page['rows'][sel[0]]['band'] if sel else None
             self.j.event(kind='from_current', selected=page['rows'][sel[0]]['name'] if sel else None,
                          ordinal_base=self.ordinal_base, prepopulated=len(pre),

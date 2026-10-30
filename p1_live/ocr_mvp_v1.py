@@ -23,6 +23,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import wxio  # noqa: E402
+import do_not_send  # noqa: E402
 from wxio import Stop, need, ocr, center  # noqa: E402
 import numpy as np  # noqa: E402
 import cv2  # noqa: E402
@@ -227,6 +228,12 @@ class Ledger:
         return r[0] if r else None
 
     def put(self, key, state, intent=None, result=None, recipient_ref=None):
+        if state == 'PREPARED':
+            # last guard before any Send click: permanent do-not-send list (do_not_send.py)
+            why = do_not_send.blocked(key.split('|wxid:', 1)[-1], json.dumps(intent, ensure_ascii=False),
+                                      recipient_ref or '')
+            if why:
+                raise Unknown(why)
         with self.db:
             self.db.execute('BEGIN IMMEDIATE')
             if self.state(key) is None:

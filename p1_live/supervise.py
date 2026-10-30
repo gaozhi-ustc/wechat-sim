@@ -69,6 +69,10 @@ except BlockingIOError:
     sys.exit('another supervise.py is already running for this ledger; not starting')
 
 resume = int(sys.argv[sys.argv.index('--first-resume') + 1]) if '--first-resume' in sys.argv else 0
+# --script star_v1.py --mode --dry-run --glob 'star_*_dry' supervises another batch_v2-based runner
+SCRIPT = sys.argv[sys.argv.index('--script') + 1] if '--script' in sys.argv else 'batch_v2.py'
+MODE_ARG = sys.argv[sys.argv.index('--mode') + 1] if '--mode' in sys.argv else '--send'
+RUN_GLOB = sys.argv[sys.argv.index('--glob') + 1] if '--glob' in sys.argv else 'batch_*_send'
 best = resume
 no_progress = 0
 for n in range(MAX_RESTARTS):
@@ -77,11 +81,12 @@ for n in range(MAX_RESTARTS):
         log(kind='halt', reason='ledger unresolved', rows=bad); break
     if not wait_clean():
         log(kind='halt', reason='WeChat extra window persisted 1h'); break
-    before = set(p.name for p in (HERE / 'evidence').glob('batch_*_send'))
+    before = set(p.name for p in (HERE / 'evidence').glob(RUN_GLOB))
     log(kind='launch', n=n, resume_after=resume)
-    rc = subprocess.call([sys.executable, '-I', str(HERE / 'batch_v2.py'), '--send', '--from-current', '--ordinal-base', str(resume)],
-                         stdout=open(HERE.parent / ('batch_send_%s_%02d.log' % (time.strftime('%Y%m%dT%H%M%S'), n)), 'w'), stderr=subprocess.STDOUT)
-    new = sorted(set(p.name for p in (HERE / 'evidence').glob('batch_*_send')) - before)
+    where = [] if (n == 0 and '--first-from-top' in sys.argv) else ['--from-current', '--ordinal-base', str(resume)]
+    rc = subprocess.call([sys.executable, '-I', str(HERE / SCRIPT), MODE_ARG] + where,
+                         stdout=open(HERE.parent / ('%s_%s_%02d.log' % (Path(SCRIPT).stem, time.strftime('%Y%m%dT%H%M%S'), n)), 'w'), stderr=subprocess.STDOUT)
+    new = sorted(set(p.name for p in (HERE / 'evidence').glob(RUN_GLOB)) - before)
     d = HERE / 'evidence' / new[-1] if new else None
     last, tail, stop = run_summary(d) if d else (None, None, 'no run dir')
     log(kind='exit', n=n, rc=rc, run=str(d), last_ordinal=last, tail=tail, stop=stop)
