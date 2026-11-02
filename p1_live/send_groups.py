@@ -45,6 +45,7 @@ MODE = 'send_groups'
 bv.WAITS['chat'] = (0.15, 3.0)      # the chat header paints fast; keep the per-row cost low
 bv.WAITS['info'] = (0.40, 6.0)      # inline info panel: OCR of the panel is slow, give it room
 bv.WAITS['search'] = (0.50, 8.0)    # Chats search: results (and the 'Group Chats' section) take a moment
+bv.WAITS['minimized'] = (0.40, 5.0) # opening the Minimized Groups container
 W_CHATS_TAB = (31, 113)              # sidebar Chats icon (main window relative)
 CHAT_MORE = (1057, 56)               # chat header '...' -> inline info panel (toggle)
 SEARCH_BOX = (170, 57)               # Chats tab search box
@@ -132,30 +133,59 @@ def row_name_match(row_name, title):
     return k >= 6 and sum(x != y for x, y in zip(a[:k], b[:k])) <= 1
 
 
+TIME_TAIL = re.compile(r'\s*(?:[0-9OolI|]{1,2}[:：.．][0-9OolI|]{1,2}'
+                        r'|(?:Yesterday|Today|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday))\s*$', re.I)
+
+
 def parse_rows(texts, g, y_min=85):
-    """Chat-list rows of one page -> [{name, time, preview, y, key}]; a row is anchored on its time stamp
-    (same line as the name) or is the 'Minimized Groups' container (which carries no time)."""
-    rel = [(t[0].strip(), t[2][0] - g['x'], t[2][1] - g['y'], t[2][3]) for t in texts]
+    """Chat-list rows of one page -> [{name, time, preview, y, key}].
+
+    A row is normally anchored on its time stamp (same line as the name, x >= 190). Two cases need care:
+      * an emoji at the start of the name can make the OCR detector merge name+time into ONE box
+        ('<name>..02:42') -- split the trailing time off and keep the row;
+      * the time may not be read at all -- a name-column line with a preview line right below is a row.
+    Boxes that share a line inside the name column (e.g. emoji read separately) are joined by x.
+    """
+    rel = [(t[0].strip(), t[2][0] - g['x'], t[2][1] - g['y'], t[2][2]) for t in texts]
     times = [r for r in rel if r[1] >= 190]
     rows, seen_y = [], []
 
-    def add(name, y):
-        if any(abs(y - v) <= 12 for v in seen_y):
+    def add(name, y, tm=None):
+        name = (name or '').strip()
+        if not name or any(abs(y - v) <= 12 for v in seen_y):
             return
-        tm = ' '.join(sorted({r[0] for r in times if abs(r[2] - y) <= 9}))
+        tm = tm if tm is not None else ' '.join(sorted({r[0] for r in times if abs(r[2] - y) <= 9}))
         pv = [r for r in rel if 100 <= r[1] < 200 and 11 <= r[2] - y <= 34]
         prev = ' '.join(r[0] for r in sorted(pv, key=lambda r: (r[2], r[1])))
         seen_y.append(y)
         rows.append(dict(name=name, time=tm, preview=prev, y=y,
                          key='%s|%s' % (canon(name), canon(prev)[:24])))
 
-    for name, x, y, h in sorted(rel, key=lambda r: r[2]):
-        if y < y_min or y > LIST[1] + LIST[3] - 22:
-            continue                                   # search box / partially visible row
-        if 112 <= x <= 175 and any(abs(t[2] - y) <= 9 for t in times):
-            add(name, y)                               # normal row: name line carries the time
-        elif canon(name) == 'minimizedgroups' and y < LIST[1] + LIST[3] - 22:
-            add(name, y)                               # container row without a time stamp
+    # name-column boxes grouped into text lines
+    lines = []
+    for name, x, y, w in sorted(rel, key=lambda r: (r[2], r[1])):
+        if not (112 <= x <= 175) or y < y_min or y > LIST[1] + LIST[3] - 22:
+            continue
+        if lines and abs(lines[-1][0] - y) <= 9:
+            lines[-1][1].append((x, name, w))
+        else:
+            lines.append([y, [(x, name, w)]])
+    for y, parts in lines:
+        parts.sort()
+        name = ''.join(p[1] for p in parts)
+        x0, w_end = parts[0][0], parts[-1][0] + parts[-1][2]
+        if any(abs(t[2] - y) <= 9 for t in times):
+            add(name, y)
+            continue
+        m = TIME_TAIL.search(name)
+        if m and m.start() > 0 and w_end > 200:            # name+time merged into one OCR box
+            add(name[:m.start()], y, tm=m.group(0).strip())
+            continue
+        if any(100 <= r[1] < 200 and 11 <= r[2] - y <= 34 for r in rel):
+            add(name, y)                                    # time unreadable, but it is a chat row
+    for name, x, y, w in rel:                               # container row without a time stamp
+        if plain(name) == 'minimizedgroups' and 80 <= y <= 115:
+            add(name, y)
     return sorted(rows, key=lambda r: r['y'])
 
 
@@ -824,22 +854,23 @@ class GroupSendEngine(BatchEngine):
         self.act(st, f, (g['x'] + 170, g['y'] + row['y'] + 6), 'minimized-groups', g)
         def opened(f):
             t = self.ocr_box(st, f['im'], absbox(g, LIST))
-            hit = [x for x in t if canon(x[0]) == 'minimizedgroups' and x[2][1] - g['y'] < 120]
+            hit = [x for x in t if plain(x[0]) == 'minimizedgroups' and x[2][1] - g['y'] < 120]
             if not hit:
                 raise Unknown('minimized groups list not shown')
             return hit[0][2]
-        f, tb = self.poll(st, 'contacts', opened)
+        try:
+            f, tb = self.poll(st, 'minimized', opened)
+        except Stop:
+            # the click may have landed elsewhere (list re-sorted): skip the container, keep going
+            self.j.event(kind='minimized_not_opened')
+            return self.look(st)
         self.j.event(kind='enter_minimized')
         f = self.enumerate_list(st, f, g, ledger, done, sub=True)
         # back arrow sits just left of the sub-list title
-        bx, by = g['x'] + (tb[0] - g['x']) - 14, g['y'] + (tb[1] - g['y']) + 3
-        self.act(st, f, (bx, by), 'minimized-back', g)
-        def back(f):
-            t = self.ocr_box(st, f['im'], absbox(g, LIST))
-            if any(canon(x[0]) == 'minimizedgroups' and x[2][1] - g['y'] < 120 for x in t):
-                raise Unknown('still inside Minimized Groups')
-            return {}
-        f, _ = self.poll(st, 'contacts', back)
+        try:
+            f = self.leave_sublist(st, f, g)
+        except Stop:
+            self.j.event(kind='minimized_stuck')
         self.j.event(kind='exit_minimized')
         return f
 
@@ -1038,7 +1069,10 @@ class GroupSendEngine(BatchEngine):
         eng(warm); eng(warm, use_det=False, use_cls=False, use_rec=True); st.add('ocr', s)
         s = time.time(); full = wxio.observe(); st.add('window', s)
         self.pid = full['pid']; g = self.g = full['main']['geom']
-        need((g['w'], g['h']) == bv.MAIN_SIZE, 'main geometry not calibrated')
+        # all calibrated points are anchored at the window's top-left, so a couple of pixels of window
+        # manager drift is harmless; anything bigger means the layout cannot be trusted
+        need(abs(g['w'] - bv.MAIN_SIZE[0]) <= 4 and abs(g['h'] - bv.MAIN_SIZE[1]) <= 4,
+             'main geometry not calibrated: %r vs %r' % ((g['w'], g['h']), bv.MAIN_SIZE))
         if len(full['wechat']) > 1:                 # a popup left over from an earlier run
             self.epoch += 1
             s = time.time(); self.x.key('Escape'); st.add('input', s)
