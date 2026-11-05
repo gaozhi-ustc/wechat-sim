@@ -28,7 +28,8 @@ def main():
     rid = sys.argv[2] if len(sys.argv) > 2 else 'fav_assfox_20261027T011121'
     db = sqlite3.connect(LEDGER)
     sent = []
-    for k, i in db.execute("SELECT op_key,intent FROM ops WHERE request_id=? AND state='SEND_CLICKED'", (rid,)):
+    for k, i in db.execute("SELECT op_key,intent FROM ops WHERE request_id=? AND state='SEND_CLICKED' "
+                          "AND op_key LIKE '%|wxid:%'", (rid,)):
         d = json.loads(i or '{}')
         names = {canon(n) for n in (d.get('row'), d.get('profile'), header_name(d.get('header'))) if n} - {''}
         sent.append((k.split('|wxid:', 1)[1], d.get('profile') or d.get('row'), names))

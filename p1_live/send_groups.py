@@ -559,7 +559,7 @@ class GroupSendEngine(BatchEngine):
             pass
         self.finish_stage(st)
         op_key = '%s|%s|group:%s' % (bv.REQUEST_ID, bv.ACCOUNT, base)
-        existing = ledger.state(op_key)
+        existing = ledger.state(op_key) or self.campaign_group_state(ledger).get(canon(base))
         if existing is not None:
             if existing == 'SEND_CLICKED' and canon(base) not in self.sent_names:
                 self.record_sent(base, n)          # keep the local record in step with the ledger
@@ -572,6 +572,19 @@ class GroupSendEngine(BatchEngine):
             rec.update(outcome='SKIPPED_PRE_SEND', reason=str(e)[:200])
             f = self.recover(g)
         return self.close_row(rec, f), rec
+
+    def campaign_group_state(self, ledger):
+        """canon(base name) -> ledger state for every group op of this campaign.
+
+        The op_key uses the chat title as OCR read it, so the same group can appear under two spellings
+        ('A 开放计算中国社区' vs 'A开放计算中国社区') and be sent twice in one campaign. This canon-indexed
+        view makes the dedupe immune to spacing/OCR-glyph differences. Cached; refreshed after each dispatch."""
+        if getattr(self, '_grp_state', None) is None or self._grp_n != self.dispatched:
+            rows = ledger.db.execute("SELECT op_key,state FROM ops WHERE request_id=? AND op_key LIKE '%|group:%'",
+                                     (bv.REQUEST_ID,)).fetchall()
+            self._grp_state = {canon(k.split('|group:', 1)[1]): s for k, s in rows}
+            self._grp_n = self.dispatched
+        return self._grp_state
 
     def close_row(self, rec, f):
         key = rec.pop('_title_key', None)

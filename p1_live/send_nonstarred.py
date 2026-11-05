@@ -1,11 +1,15 @@
 """send_nonstarred: send the current first native favorite to every NON-starred friend (batch_v2 send flow).
 
-Start: select the first alphabetical row (just below the 'Starred' section) and run with --from-current; starred
-friends live only in the Starred section, so the alphabetical list below holds the non-starred ones. Second guard:
-a profile whose Weixin ID is in the star ledger is excluded (EXCLUDED_SCOPE). The do-not-send list
-(do_not_send.py) applies as on every send path.
+Two start modes:
+  * --from-top (full sweep): batch_v2's normal from-the-top flow -- scrolls the Contacts list to the top with a
+    top proof, then walks every page. Starred friends live in the 'Starred' section at the top, so they are met
+    first and excluded by the star ledger (EXCLUDED_SCOPE); everything below is non-starred.
+  * --from-current (resume): start at the already selected (green) row, which is the last contact processed; a
+    restart re-checks that row and the send ledger dedupes (ALREADY_*).
+Second guard in both modes: a profile whose Weixin ID is in the star ledger is excluded (EXCLUDED_SCOPE). The
+do-not-send list (do_not_send.py) applies as on every send path.
 
-Usage: python3 -I send_nonstarred.py --send | --no-send --from-current [--ordinal-base N] [--max-rows N]
+Usage: python3 -I send_nonstarred.py --send | --no-send (--from-top | --from-current) [--ordinal-base N] [--max-rows N]
 """
 import json
 import os
@@ -85,10 +89,11 @@ class NonStarredSendEngine(BatchEngine):
 if __name__ == '__main__':
     send = '--send' in sys.argv
     need(send or '--no-send' in sys.argv, 'specify --send or --no-send')
-    need('--from-current' in sys.argv, 'start from the selected first alphabetical row (--from-current)')
+    need('--from-current' in sys.argv or '--from-top' in sys.argv,
+         'specify a start mode: --from-top (full sweep) or --from-current (resume from the selected row)')
     max_rows = int(sys.argv[sys.argv.index('--max-rows') + 1]) if '--max-rows' in sys.argv else None
     eng = NonStarredSendEngine(send, None, max_rows)
-    eng.from_current = True
+    eng.from_current = '--from-current' in sys.argv
     eng.ordinal_base = int(sys.argv[sys.argv.index('--ordinal-base') + 1]) if '--ordinal-base' in sys.argv else 0
     try:
         r = eng.run()

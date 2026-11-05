@@ -1,11 +1,15 @@
 """send_starred: send the current first native favorite to every starred friend (batch_v2 send flow).
 
-Scope: only the 'Starred' section at the top of Contacts (header 'Starred' ... first letter header), and the
-profile's Weixin ID must also be in the star ledger (star_v1 / star_apply) -- non-starred friends are never sent.
-Everything else (campaign REQUEST_ID by favorite title, dedupe ledger, recipient header / title checks, durable
-intent before the single Send click) is batch_v2's.
+Two scopes:
+  * default: only the 'Starred' section at the top of Contacts (header 'Starred' ... first letter header) -- fast,
+    but only covers the friends the UI currently lists there;
+  * --anywhere (full sweep): walk the whole Contacts list from the top and keep the friends whose Weixin ID is in
+    the star ledger, i.e. *every* starred friend per the ledger (the UI's Starred section may list fewer).
+In both scopes the profile's Weixin ID must be in the star ledger (star_v1 / star_apply) -- non-starred friends
+are never sent. Everything else (campaign REQUEST_ID by favorite title, dedupe ledger, recipient header / title
+checks, durable intent before the single Send click) is batch_v2's.
 
-Usage: python3 -I send_starred.py --send | --no-send [--max-rows N] [--from-current [--ordinal-base N]]
+Usage: python3 -I send_starred.py --send | --no-send [--anywhere [--from-top | --from-current --ordinal-base N]]
 Env: as batch_v2 (WX_LEDGER = send ledger, WX_REQUEST_ID=auto); WX_STAR_LEDGER = star ledger.
 """
 import json
@@ -34,13 +38,30 @@ class StarredSendEngine(BatchEngine):
         super().__init__(send, limit, max_rows)
         self.starred = starred_ids()
         self.section_end = False
+        self.anywhere = False          # True: whole Contacts list, keep only ledger-starred friends
         self.redo_current = True       # restarts re-check the selected row; the send ledger dedupes (ALREADY_*)
+
+    def is_starred(self, weixin_id):
+        w = fold_wxid(weixin_id)
+        # OCR can differ by a glyph between reads (g/q, 1/l): allow one substitution against a starred ID
+        return w in self.starred or any(len(x) == len(w) and sum(a != b for a, b in zip(x, w)) <= 1
+                                        for x in self.starred)
+
+    def exclude_recipient(self, p, row):
+        """--anywhere: leave out everyone who is not starred, before any chat/panel is opened."""
+        if not self.anywhere:
+            return None
+        if self.is_starred(p['weixin_id']):
+            return None
+        return 'not a starred friend (Weixin ID %r not in the star ledger)' % p['weixin_id']
 
     def scan(self, st, f, g):
         """Keep only rows of the Starred section: below the 'Starred' label, above the first letter header."""
         texts = self.ocr_box(st, f['im'], absbox(g, bv.W_LIST))
         page = bv.perceive_page(texts, g, f['im'])
         self.dbg('page', f['im'])
+        if self.anywhere:
+            return page
         rel = lambda t: (t[2][0] - g['x'], t[2][1] + t[2][3] / 2)
         star_h = [rel(t)[1] for t in texts if canon(t[0]) in ('starred', 'tarred') and 100 <= rel(t)[0] < 128]
         # the Starred section is followed by the alphabetical list's first header 'A' (x ~97); other single letters
@@ -58,16 +79,13 @@ class StarredSendEngine(BatchEngine):
 
     def scroll(self, st, f, g, button, notches):
         # past the Starred section: report "list did not move" so batch_v2 ends with its tail record
-        if button == 5 and self.section_end:
+        if not self.anywhere and button == 5 and self.section_end:
             self.j.event(kind='section_end')
             return
         return super().scroll(st, f, g, button, notches)
 
     def send_chain(self, rec, p, op_key, g, f, ledger):
-        w = fold_wxid(p['weixin_id'])
-        # OCR can differ by a glyph between reads (g/q, 1/l): allow one substitution against a starred ID
-        if w not in self.starred and not any(len(x) == len(w) and sum(a != b for a, b in zip(x, w)) <= 1
-                                             for x in self.starred):
+        if not self.is_starred(p['weixin_id']):
             raise Unknown('Weixin ID %r is not in the star ledger' % p['weixin_id'])
         return super().send_chain(rec, p, op_key, g, f, ledger)
 
@@ -77,6 +95,8 @@ if __name__ == '__main__':
     need(send or '--no-send' in sys.argv, 'specify --send or --no-send')
     max_rows = int(sys.argv[sys.argv.index('--max-rows') + 1]) if '--max-rows' in sys.argv else None
     eng = StarredSendEngine(send, None, max_rows)
+    if '--anywhere' in sys.argv:
+        eng.anywhere = True
     if '--from-current' in sys.argv:
         eng.from_current = True
         eng.ordinal_base = int(sys.argv[sys.argv.index('--ordinal-base') + 1]) if '--ordinal-base' in sys.argv else 0

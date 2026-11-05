@@ -151,6 +151,9 @@ def perceive_page(texts, g, im=None):
                          band=band, center=(g['x'] + 170, cy), complete=complete,
                          avatar=avatar_crop(arr, g, cy) if complete else None,
                          sig=name_ink(arr, g, cy) if complete else None))
+    # A section label ('Starred') sits inside the name column and would otherwise look like a contact row;
+    # clicking it only expands/collapses the section, so it must never be processed as a recipient.
+    rows = [r for r in rows if canon(r['name']) not in ('starred', 'tarred')]
     return dict(top=top, count=int(count[0][0]) if count else None, header_y=hy, rows=rows)
 
 
@@ -409,9 +412,13 @@ class BatchEngine(FastEngine):
         return None
 
     def sent_folded(self):
-        """folded Weixin ID -> ledger state, for every op of this batch (cached; refreshed after each dispatch)."""
+        """folded Weixin ID -> ledger state, for every wxid op of this batch (cached; refreshed after each dispatch).
+
+        The same REQUEST_ID can also hold group ops ('...|group:<name>') when the favorite was pushed to chat
+        groups first, so only '|wxid:' keys are folded here (other keys have no Weixin ID to split out)."""
         if getattr(self, '_folded', None) is None or self._folded_n != self.dispatched:
-            rows = self._ledger.db.execute('SELECT op_key,state FROM ops WHERE request_id=?', (REQUEST_ID,)).fetchall()
+            rows = self._ledger.db.execute("SELECT op_key,state FROM ops WHERE request_id=? AND op_key LIKE '%|wxid:%'",
+                                           (REQUEST_ID,)).fetchall()
             self._folded = {fold_wxid(k.split('|wxid:', 1)[1]): st for k, st in rows}
             self._folded_n = self.dispatched
         return self._folded
@@ -691,6 +698,11 @@ class BatchEngine(FastEngine):
         s = time.time(); full = wxio.observe(); st.add('window', s)
         self.pid = full['pid']; g = self.g = full['main']['geom']
         need((g['w'], g['h']) == MAIN_SIZE, 'main geometry not calibrated')
+        if len(full['wechat']) > 1:                  # a popup / notification window left over from an earlier run
+            self.epoch += 1
+            s = time.time(); self.x.key('Escape'); st.add('input', s)
+            time.sleep(0.6)
+            s = time.time(); full = wxio.observe(); st.add('window', s)
         if full['active'] != full['main']['id']:
             need(len(full['wechat']) == 1, 'unexpected WeChat transient at start')
             self.epoch += 1
@@ -765,7 +777,10 @@ class BatchEngine(FastEngine):
             if page_no == 1 and self.from_current:
                 start = self.current_start
             elif page_no == 1:
-                start = next((i for i, r in enumerate(page['rows']) if r['complete']), len(page['rows']))
+                # skip leading rows with no readable name: the 'Starred' section label sits in the name column
+                # and clicking it only expands the section (it can never be a recipient)
+                start = next((i for i, r in enumerate(page['rows']) if r['complete'] and canon(r['name'])),
+                             len(page['rows']))
             else:
                 start, err = None, None
                 for attempt in range(4):
