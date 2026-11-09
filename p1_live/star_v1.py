@@ -36,7 +36,7 @@ import numpy as np  # noqa: E402
 MODE = 'star_v1'
 SINCE = tuple(int(v) for v in os.environ.get('WX_STAR_SINCE', '2026-10-01').split('-'))   # (y, m, d)
 TODAY = time.localtime()
-WAITS.update(menu=(0.15, 1.5), chat_open=(0.30, 3.0), chat_scroll=(0.25, 2.5), star=(0.15, 1.5))
+WAITS.update(menu=(0.15, 3.0), chat_open=(0.30, 4.0), chat_scroll=(0.25, 2.5), star=(0.15, 2.5))
 
 # chat message area (window-relative); scrollbar (x>=1075) excluded
 CY0, CY1, CX0, CX1, CMID, CBG = 82, 627, 301, 1074, 694.5, 250
@@ -190,32 +190,131 @@ class StarEngine(BatchEngine):
         self.j = wxfast.Journal(self.dir / 'events.jsonl')
         self.sink.dir = self.dir
         self.starred = 0
+        self.resume_name = None
+        self._resumed = False
         self.redo_current = True       # --from-current re-checks the selected row (it may have been interrupted)
 
-    # -- page scan: skip the 'Starred' section (header + copies of starred friends) at the top of Contacts
+    # -- resume positioning: entering the Contacts tab scrolls the list back to the top, so the position has to
+    #    be restored *after* that, from the list_stable() hook the from_current path calls exactly once.
+    def on_contacts_tab(self):
+        g = self.g
+        im = wxio.ImageGrab.grab(xdisplay=':1').convert('RGB')
+        return any('contacts' in canon(t[0]) for t in wxio.ocr(im, [g['x'] + 50, g['y'] + 30, 300, 80]))
+
+    def list_stable(self, g):
+        if self.resume_name and not self._resumed:
+            self._resumed = True
+            try:
+                self.position_at(self.resume_name, g)
+            except Exception as e:
+                self.j.event(kind='resume_position_failed', name=self.resume_name, error=str(e)[:120])
+        return super().list_stable(g)
+
+    def position_at(self, name, g):
+        """Scroll the Contacts list until `name` is visible, then click it (used to resume a stopped sweep).
+
+        Uses its own screen grabs: the engine's frame cache does not always show the effect of a wheel burst.
+        """
+        st = Stage('resume_position')
+        X = self.x
+        target = canon(name)
+
+        def rows():
+            im = wxio.ImageGrab.grab(xdisplay=':1').convert('RGB')
+            out = []
+            for t, _s, b in wxio.ocr(im, absbox(g, bv.W_LIST)):
+                if 128 <= b[0] - g['x'] <= 175:
+                    out.append((t.strip(), b[1] + b[3] // 2))
+            return out
+
+        def wheel(n, button):
+            X.move(g['x'] + 180, g['y'] + 450)
+            for _ in range(n):
+                X.xt.XTestFakeButtonEvent(X.d, button, 1, 0)
+                X.xt.XTestFakeButtonEvent(X.d, button, 0, 0)
+                X.x.XSync(X.d, 0)
+                time.sleep(0.003)
+            X.move(g['x'] + 700, g['y'] + 16)
+            time.sleep(1.0)
+
+        # Clicking a contact row opens its profile and moves the scroll focus away from the list, so focus is
+        # taken on a letter header instead (single character) — and only if the first wheel burst does nothing.
+        def focus_list():
+            rs = rows()
+            heads = [(n, y) for n, y in rs if len(canon(n)) == 1 or canon(n) in ('sep.', 'starred', 'tarred')]
+            if heads:
+                X.click(g['x'] + 170, g['y'] + heads[0][1])
+                time.sleep(0.6)
+                return True
+            return False
+        button, stuck, flips = 5, 0, 0
+        deadline = time.time() + 300
+        while time.time() < deadline:
+            rs = rows()
+            hit = [y for n, y in rs if canon(n) == target or (target and target in canon(n))]
+            if hit:
+                X.click(g['x'] + 170, g['y'] + hit[0])
+                time.sleep(0.9)
+                self.j.event(kind='resume_positioned', name=name, y=hit[0])
+                return
+            before = [n for n, _ in rs]
+            wheel(1500, button)
+            if [n for n, _ in rows()] == before:
+                if not focus_list():
+                    break
+                wheel(1500, button)
+            if [n for n, _ in rows()] == before:
+                stuck += 1
+                if stuck >= 2:
+                    button = 4 if button == 5 else 5
+                    stuck, flips = 0, flips + 1
+                    if flips >= 3:
+                        break
+            else:
+                stuck = 0
+        raise Stop('could not position at %r' % name)
+
     def scan(self, st, f, g):
+        """Drop only the 'Starred' section's label/unnamed rows; starred friends themselves are scanned like
+        everyone else (their re-verification ends in ALREADY_STARRED, never re-clicked).
+
+        The old window-based drop (label .. first letter header) broke when the section grew longer than one
+        viewport: with no letter header in view it wiped the whole first page, leaving `seen` empty, and the
+        page-2 overlap then failed with 'page overlap not established: seen tail [] vs page []'."""
         texts = self.ocr_box(st, f['im'], absbox(g, bv.W_LIST))
-        page = bv.perceive_page(texts, g, f['im'])
+        # rapidocr occasionally returns a box whose coordinates are not numeric (one frame, hard to reproduce):
+        # coerce them so a single odd entry cannot kill a whole sweep. Non-numeric geometry -> drop the entry.
+        clean = []
+        for t in texts:
+            try:
+                x, y, w, h = (int(v) for v in t[2])
+            except (TypeError, ValueError):
+                continue
+            clean.append((t[0], t[1], [x, y, w, h]))
+        texts = clean
+        try:
+            page = bv.perceive_page(texts, g, f['im'])
+        except Unknown as e:
+            # a scroll animation can render the sticky 'Contacts' header twice (or a search view slips in):
+            # take a fresh frame once instead of aborting the whole run
+            if 'header not unique' not in str(e):
+                raise
+            time.sleep(0.4)
+            f = self.look(st)
+            texts = self.ocr_box(st, f['im'], absbox(g, bv.W_LIST))
+            page = bv.perceive_page(texts, g, f['im'])
         self.dbg('page', f['im'])
         rel = lambda t: (t[2][0] - g['x'], t[2][1] + t[2][3] / 2)       # (window x, absolute y centre)
         star_h = [rel(t)[1] for t in texts if canon(t[0]) in ('starred', 'tarred') and 100 <= rel(t)[0] < 128]
-        letters = sorted(rel(t)[1] for t in texts if re.fullmatch(r'[A-Z#]', t[0].strip()) and rel(t)[0] < 110)
         if star_h:
             y0 = star_h[0] - 14
-            nxt = [y for y in letters if y > star_h[0]]
+            nxt = [rel(t)[1] for t in texts
+                   if re.fullmatch(r'[A-Z#]', t[0].strip()) and rel(t)[0] < 110 and rel(t)[1] > star_h[0]]
             y1 = nxt[0] if nxt else 10 ** 6
-            drop = [r for r in page['rows'] if y0 <= r['center'][1] <= y1]
+            drop = [r for r in page['rows'] if y0 <= r['center'][1] <= y1 and not canon(r['name'])]
             if drop:
                 self.j.event(kind='skip_starred_section', rows=[r['name'] for r in drop])
-            page['rows'] = [r for r in page['rows'] if r not in drop]
-        elif getattr(self, 'starred_names', None):
-            # 'Starred' label scrolled off: the section still ends at the first letter header 'A'
-            hdr_a = [rel(t)[1] for t in texts if t[0].strip() == 'A' and rel(t)[0] < 110]
-            if hdr_a:
-                drop = [r for r in page['rows'] if r['center'][1] < hdr_a[0]]
-                if drop and all(not canon(r['name']) or canon(r['name']) in self.starred_names for r in drop):
-                    self.j.event(kind='skip_starred_section', rows=[r['name'] for r in drop], header=False)
-                    page['rows'] = [r for r in page['rows'] if r not in drop]
+                page['rows'] = [r for r in page['rows'] if r not in drop]
         return page
 
     # -- menu
@@ -397,6 +496,12 @@ class StarEngine(BatchEngine):
         if m.get('self'):
             rec.update(outcome='EXCLUDED_SELF', reason='row menu has only Messages')
             return self.close_rec(rec, self.close_menu(st))
+        # The row menu's star item is state-dependent ('Unstar' = already starred). Reading it here lets an
+        # already-starred friend skip the whole chat-history scan (the expensive part) -- ~6 s saved per friend.
+        # The profile menu in star() still re-verifies the state before any click, so a misread only costs a skip.
+        if canon(m['starred']) == canon('Unstar'):
+            rec.update(outcome='ALREADY_STARRED', state_before='starred', reason='row menu reads Unstar')
+            return self.close_rec(rec, self.close_menu(st))
         self.menu_click(st, (p[0] + MENU_CLICK['messages'][0], p[1] + MENU_CLICK['messages'][1]), 'menu-messages')
         prev = {}
 
@@ -411,6 +516,17 @@ class StarEngine(BatchEngine):
             prev['sig'] = sig
             if not same:
                 raise Unknown('chat still rendering')
+            # The header repaints before the message pane: a stale body from the previous chat is also "stable".
+            # Require the title to have been right for a short settle time and the body to stay stable across
+            # two polls, so the pane cannot be read while it still shows the previously opened chat.
+            if 't_title' not in prev:
+                prev['t_title'] = time.time()
+                raise Unknown('chat just switched')
+            if time.time() - prev['t_title'] < 0.6:
+                raise Unknown('chat still settling')
+            if not sig_stable(prev.get('sig2'), sig):
+                prev['sig2'] = sig
+                raise Unknown('chat body still settling')
             return t
         try:
             f, title = self.poll(st, 'chat_open', chat_ready)
@@ -576,6 +692,12 @@ if __name__ == '__main__':
     need(star or '--dry-run' in sys.argv, 'specify --star or --dry-run')
     max_rows = int(sys.argv[sys.argv.index('--max-rows') + 1]) if '--max-rows' in sys.argv else None
     eng = StarEngine(star, max_rows)
+    if '--resume-from' in sys.argv:
+        eng.resume_name = sys.argv[sys.argv.index('--resume-from') + 1]
+        eng.from_current = True
+        eng.g = wxio.observe()['main']['geom']
+        eng.keep_position = eng.on_contacts_tab()     # already on Contacts: skip the tab click, keep the scroll
+        print('resume-from %r keep_position=%s' % (eng.resume_name, eng.keep_position), flush=True)
     if '--from-current' in sys.argv:
         eng.from_current = True
         eng.ordinal_base = int(sys.argv[sys.argv.index('--ordinal-base') + 1]) if '--ordinal-base' in sys.argv else 0

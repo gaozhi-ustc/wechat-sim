@@ -43,7 +43,7 @@ import numpy as np  # noqa: E402
 
 MODE = 'send_groups'
 bv.WAITS['chat'] = (0.15, 3.0)      # the chat header paints fast; keep the per-row cost low
-bv.WAITS['info'] = (0.40, 6.0)      # inline info panel: OCR of the panel is slow, give it room
+bv.WAITS['info'] = (0.40, float(os.environ.get('WX_INFO_WAIT', '6.0')))      # inline info panel: OCR of the panel is slow, give it room
 bv.WAITS['search'] = (0.50, 8.0)    # Chats search: results (and the 'Group Chats' section) take a moment
 bv.WAITS['minimized'] = (0.40, 5.0) # opening the Minimized Groups container
 W_CHATS_TAB = (31, 113)              # sidebar Chats icon (main window relative)

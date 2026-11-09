@@ -734,8 +734,11 @@ class BatchEngine(FastEngine):
 
         # Contacts tab, scroll to top, top proof.
         st = Stage('contacts_top' if not self.from_current else 'contacts_current')
-        self.act(st, f, abspt(g, W_CONTACTS_TAB), 'contacts-tab', g)
-        f, _ = self.poll(st, 'contacts', self.main_active)
+        if not getattr(self, 'keep_position', False):
+            # re-entering the tab scrolls the list back to the top; a resume that already sits on Contacts
+            # keeps its selection (and therefore its position) by skipping this click
+            self.act(st, f, abspt(g, W_CONTACTS_TAB), 'contacts-tab', g)
+            f, _ = self.poll(st, 'contacts', self.main_active)
         if self.from_current:
             # Continue from where the list is now: the selected (green) row is the last contact processed.
             f, _ = self.poll(st, 'scroll', self.list_stable(g))
