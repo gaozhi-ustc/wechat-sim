@@ -423,6 +423,25 @@ class BatchEngine(FastEngine):
             self._folded_n = self.dispatched
         return self._folded
 
+    def dismiss_dialogs(self):
+        """Close stray confirmation windows (the 'Log out?' dialog appears after the avatar popup)."""
+        o = wxio.observe()
+        for w in o['wechat']:
+            if w['id'] == o['main']['id'] or (w['geom']['w'], w['geom']['h']) == PANEL_SIZE:
+                continue
+            im, at = wxfast.grab()
+            items = [(t.strip().lower(), b) for t, s, b in wxio.ocr(im, (w['geom']['x'], w['geom']['y'],
+                                                                       w['geom']['w'], w['geom']['h']))]
+            btn = [b for t, b in items if t == 'cancel']
+            if not btn:
+                continue
+            self.epoch += 1
+            self.j.event(kind='input', stage='dismiss', label='cancel-dialog', epoch=self.epoch)
+            self.x.click(btn[0][0] + btn[0][2] // 2, btn[0][1] + btn[0][3] // 2)
+            time.sleep(0.8)
+            return True
+        return False
+
     def recover(self, g):
         """Pre-send cleanup only: Escape any panel, return to main."""
         st = Stage('recover')
@@ -603,8 +622,12 @@ class BatchEngine(FastEngine):
         s = time.time(); ledger.put(op_key, 'PREPARED', intent=intent, recipient_ref=json.dumps(intent, ensure_ascii=False)); st.add('ledger', s)
         need(time.time() - f['at'] < 180 and f['epoch'] == self.epoch, 'frame expired/stale before dispatch')
         s = time.time(); live = wxio.observe(); st.add('window', s)
-        need(live['active'] == panel['id'] and live['main']['geom'] == g and len(live['wechat']) == 2,
-             'context changed before dispatch')
+        lg = live['main']['geom']                     # the WM may drift a couple of pixels; g is normalised
+        same_geom = (lg['x'] == g['x'] and lg['y'] == g['y']
+                     and abs(lg['w'] - g['w']) <= 6 and abs(lg['h'] - g['h']) <= 6)
+        need(live['active'] == panel['id'] and same_geom and len(live['wechat']) == 2,
+             'context changed before dispatch (active=%s panel=%s geom=%s wins=%d)'
+             % (live['active'], panel['id'], lg, len(live['wechat'])))
         s = time.time(); ledger.put(op_key, 'DISPATCHING', result=dict(at=time.time())); st.add('ledger', s)
         pt = abspt(pg, P_SEND_CLICK)
         try:
@@ -652,9 +675,12 @@ class BatchEngine(FastEngine):
         rel = lambda t: (t[2][0] - g['x'], t[2][1] - g['y'])
         search = any(flat(t) == 'SearchFavorites' for t in texts)
         header = any(flat(t) == 'AllFavorites' and rel(t)[0] > 301 for t in texts)
-        first = [t for t in texts if 345 <= rel(t)[0] <= 375 and 100 <= rel(t)[1] <= 130]
+        # a collection ('N篇内容') card puts its title and a count on two lines: keep the topmost title only
+        first = [t for t in texts if 345 <= rel(t)[0] <= 375 and 100 <= rel(t)[1] <= 132
+                 and not re.fullmatch(r'\d+篇内容', flat(t))]
+        first.sort(key=lambda t: rel(t)[1])
         self.dbg('favorites', f['im'], g)
-        need(search and header and len(first) == 1 and canon(first[0][0]),
+        need(search and header and first and canon(first[0][0]),
              'favorites view not at default/top: %r' % [t[0] for t in texts])
         self.fav_title = first[0][0].strip()
         rid, new = resolve_campaign(ledger, self.fav_title, create=self.send)
@@ -697,7 +723,9 @@ class BatchEngine(FastEngine):
         eng(warm); eng(warm, use_det=False, use_cls=False, use_rec=True); st.add('ocr', s)
         s = time.time(); full = wxio.observe(); st.add('window', s)
         self.pid = full['pid']; g = self.g = full['main']['geom']
-        need((g['w'], g['h']) == MAIN_SIZE, 'main geometry not calibrated')
+        need(abs(g['w'] - MAIN_SIZE[0]) <= 6 and abs(g['h'] - MAIN_SIZE[1]) <= 6,
+             'main geometry not calibrated: %r vs %r' % ((g['w'], g['h']), MAIN_SIZE))
+        g['w'], g['h'] = MAIN_SIZE          # absorb a few pixels of window-manager drift
         if len(full['wechat']) > 1:                  # a popup / notification window left over from an earlier run
             self.epoch += 1
             s = time.time(); self.x.key('Escape'); st.add('input', s)
@@ -728,6 +756,9 @@ class BatchEngine(FastEngine):
         s = time.time(); self.x.key('Escape'); st.add('input', s)
         need(acc == ACCOUNT, 'wrong/unknown account: %r' % acc)
         f, _ = self.poll(st, 'popup_gone', self.main_active)
+        if len(f['owner']['wechat']) > 1:
+            self.dismiss_dialogs()
+            f, _ = self.poll(st, 'popup_gone', self.main_active)
         self.cold = self.finish_stage(st, account=acc)
         if AUTO_RID:
             f = self.campaign(g, f, ledger)
