@@ -42,6 +42,9 @@ AUTO_RID = os.environ.get('WX_REQUEST_ID', '') in ('', 'auto')
 W_FAV_TAB = (31, 211)                  # sidebar Favorites icon
 W_FAV_ALL_PX = (250, 140)              # 'All Favorites' row: green when selected
 W_FAV_VIEW = (61, 33, 1027, 200)       # search box + list header + first card of the Favorites tab
+W_CHAT_INPUT = (600, 700)            # chat input box: where the follow-up text is typed
+W_CHAT_INPUT_VIEW = (330, 630, 700, 80)   # input box region, for verifying the paste
+W_CHAT_LAST = (330, 280, 700, 350)   # bottom of the message flow, for verifying the text went out
 P_FIRST_TITLE = (265, 92, 360, 22)     # panel-relative title line of the first favorite (rec-only)
 
 
@@ -83,6 +86,15 @@ def resolve_campaign(ledger, title, create):
 
 
 RELAXED = os.environ.get('WX_RELAXED_NAMES') == '1'   # retry pass: tolerate one-glyph OCR slips / unreadable names
+
+
+def text_arg():
+    """--text TEXT | --text-file FILE -> follow-up message sent in the same chat right after each link, else None."""
+    if '--text' in sys.argv:
+        return sys.argv[sys.argv.index('--text') + 1]
+    if '--text-file' in sys.argv:
+        return open(sys.argv[sys.argv.index('--text-file') + 1], encoding='utf-8').read().strip()
+    return None
 
 
 def loose(a, b):
@@ -222,6 +234,7 @@ class BatchEngine(FastEngine):
         self.from_current = False
         self.ordinal_base = 0
         self.ordinal_offset = 0
+        self.text = None               # follow-up text right after each link (--text / --text-file)
         self.run_id = time.strftime('batch_%Y%m%dT%H%M%S') + ('_send' if send else '_nosend')
         self.dir = wxio.OUT / self.run_id
         self.dir.mkdir(mode=0o700)
@@ -654,6 +667,8 @@ class BatchEngine(FastEngine):
             self.j.event(kind='UI_STALLED', reason=str(e))
             rec['stages'].append(self.finish_stage(st, ui_stalled=True))
             raise Stop('UI stalled after send (SEND_CLICKED stands, no re-press): %s' % e)
+        if self.text:
+            f = self.send_text(g, rec)           # the follow-up must sit right under the link, same chat
         if self.dispatched % 25 == 1:
             self.dbg('after_send_%04d' % rec['ordinal'], f['im'], g)
         return self.back_to_list(rec, g, f)
@@ -688,6 +703,77 @@ class BatchEngine(FastEngine):
         REQUEST_ID = v1.REQUEST_ID = rid
         self.finish_stage(st, title=self.fav_title, request=rid, new=new)
         return f
+
+    def ctrl_key(self, key):
+        sh = self.x.x.XKeysymToKeycode(self.x.d, self.x.x.XStringToKeysym(b'Control_L'))
+        kc = self.x.x.XKeysymToKeycode(self.x.d, self.x.x.XStringToKeysym(key))
+        self.x.xt.XTestFakeKeyEvent(self.x.d, sh, 1, 0)
+        self.x.xt.XTestFakeKeyEvent(self.x.d, kc, 1, 0)
+        self.x.xt.XTestFakeKeyEvent(self.x.d, kc, 0, 0)
+        self.x.xt.XTestFakeKeyEvent(self.x.d, sh, 0, 0)
+        self.x.x.XSync(self.x.d, 0)
+
+    def paste_text(self, text):
+        """Ctrl+V the text through the X clipboard.
+
+        The clipboard owner (this process) has to keep serving requests *after* the key event, otherwise
+        WeChat receives nothing and the input stays empty — hence the delayed loop quit.
+        """
+        import threading
+        import gi
+        gi.require_version('Gtk', '3.0')
+        gi.require_version('Gdk', '3.0')
+        from gi.repository import Gdk, GLib, Gtk
+        Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(text, -1)
+        loop = GLib.MainLoop()
+
+        def press():
+            self.ctrl_key(b'v')
+            GLib.timeout_add(1200, loop.quit)
+        threading.Timer(0.5, press).start()
+        GLib.timeout_add(4000, loop.quit)
+        loop.run()
+
+    def text_shown(self, seen):
+        """Loose match: OCR mangles CJK often enough that an exact prefix compare is too strict."""
+        import difflib
+        a, b = canon(self.text), canon(seen)
+        if not b:
+            return False
+        if a[:8] in b:
+            return True
+        return difflib.SequenceMatcher(None, a, b).ratio() >= 0.6
+
+    def send_text(self, g, rec):
+        """Follow-up text right after the link (same chat). Never aborts the group: the card is already out."""
+        st = Stage('text')
+        try:
+            f = self.look(st)
+            self.act(st, f, abspt(g, W_CHAT_INPUT), 'chat-input', g)
+            self.ctrl_key(b'a'); time.sleep(0.15)          # drop a half-typed leftover first
+            self.x.key('BackSpace'); time.sleep(0.2)
+            self.paste_text(self.text)
+            time.sleep(1.0)
+            f = self.look(st)
+            box = ' '.join(t[0] for t in self.ocr_box(st, f['im'], absbox(g, W_CHAT_INPUT_VIEW)))
+            if not self.text_shown(box):
+                self.j.event(kind='text_not_filled', row=rec.get('row_name'), box=box[:80])
+                rec['text'] = 'INPUT_NOT_FILLED'
+                return
+            self.epoch += 1
+            s = time.time(); self.x.key('Return'); st.add('input', s)
+            time.sleep(1.5)
+            f = self.look(st)
+            shown = ' '.join(t[0] for t in self.ocr_box(st, f['im'], absbox(g, W_CHAT_LAST)))
+            ok = self.text_shown(shown)
+            rec['text'] = 'SENT' if ok else 'UNVERIFIED'
+            self.j.event(kind='text_sent', row=rec.get('row_name'), verified=ok)
+        except Exception as e:                                   # noqa: BLE001
+            rec['text'] = 'ERROR'
+            self.j.event(kind='text_error', row=rec.get('row_name'), error=str(e)[:120])
+        finally:
+            rec['stages'].append(self.finish_stage(st))
+        return self.look(Stage('text_done'))     # fresh frame: the clicks/keys above advanced the epoch
 
     def back_to_list(self, rec, g, f):
         st = Stage('return_to_list')
@@ -911,11 +997,12 @@ class BatchEngine(FastEngine):
         wall = time.time() - T0
         by = {}
         for c in self.contacts:
-            by.setdefault(c['outcome'], []).append(c.get('name') or c['row_name'])
+            c.setdefault('outcome', 'INTERRUPTED')     # row cut short by a Stop: outcome/cycle_ms may be missing
+            by.setdefault(c['outcome'], []).append(c.get('name') or c.get('row_name'))
         sent = [c for c in self.contacts if c['outcome'] == 'SEND_CLICKED']
         agg = {}
         for c in self.contacts:
-            for s in c['stages']:
+            for s in c.get('stages', []):
                 a = agg.setdefault(s['stage'], dict(n=0, total_ms=0.0, ocr_ms=0.0, wait_ms=0.0))
                 a['n'] += 1
                 for k in ('total_ms', 'ocr_ms', 'wait_ms'):
@@ -926,8 +1013,8 @@ class BatchEngine(FastEngine):
         out = dict(mode=MODE, send=self.send, wall_s=round(wall, 3), ocr_calls=self.ocr_calls,
                    cold_start_ms=self.cold['total_ms'], occurrences=len(seen), order=[x['name'] for x in seen], tail=tail,
                    outcomes={k: v for k, v in by.items()}, sent=len(sent),
-                   avg_cycle_sent_ms=round(sum(c['cycle_ms'] for c in sent) / len(sent), 1) if sent else None,
-                   avg_to_send_clicked_ms=round(sum(c['to_send_clicked_ms'] for c in sent) / len(sent), 1) if sent else None,
+                   avg_cycle_sent_ms=round(sum(c.get('cycle_ms', 0) for c in sent) / len(sent), 1) if sent else None,
+                   avg_to_send_clicked_ms=round(sum(c.get('to_send_clicked_ms', 0) for c in sent) / len(sent), 1) if sent else None,
                    per_stage=agg, contacts=self.contacts, all_stages=self.stages,
                    debug_frames_dropped=self.sink.dropped, evidence=str(self.dir))
         self.j.event(kind='finish', **{k: v for k, v in out.items() if k not in ('contacts', 'all_stages', 'per_stage')})
@@ -942,6 +1029,7 @@ if __name__ == '__main__':
     limit = int(sys.argv[sys.argv.index('--limit') + 1]) if '--limit' in sys.argv else None
     max_rows = int(sys.argv[sys.argv.index('--max-rows') + 1]) if '--max-rows' in sys.argv else None
     eng = BatchEngine(send, limit, max_rows)
+    eng.text = text_arg()
     if '--resume-after' in sys.argv:
         eng.resume_after = int(sys.argv[sys.argv.index('--resume-after') + 1])
     if '--from-current' in sys.argv:

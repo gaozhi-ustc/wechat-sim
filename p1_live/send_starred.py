@@ -10,6 +10,7 @@ are never sent. Everything else (campaign REQUEST_ID by favorite title, dedupe l
 checks, durable intent before the single Send click) is batch_v2's.
 
 Usage: python3 -I send_starred.py --send | --no-send [--anywhere [--from-top | --from-current --ordinal-base N]]
+       [--text TEXT | --text-file FILE]   follow-up text sent in the same chat right after each link
 Env: as batch_v2 (WX_LEDGER = send ledger, WX_REQUEST_ID=auto); WX_STAR_LEDGER = star ledger.
 """
 import json
@@ -95,6 +96,7 @@ if __name__ == '__main__':
     need(send or '--no-send' in sys.argv, 'specify --send or --no-send')
     max_rows = int(sys.argv[sys.argv.index('--max-rows') + 1]) if '--max-rows' in sys.argv else None
     eng = StarredSendEngine(send, None, max_rows)
+    eng.text = bv.text_arg()
     if '--anywhere' in sys.argv:
         eng.anywhere = True
     if '--from-current' in sys.argv:

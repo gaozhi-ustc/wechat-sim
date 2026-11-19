@@ -132,3 +132,22 @@ Host github.com
   - 另：`sent_groups.json` 里 3 条 `backfilled from ledger` 的占位记录与真实记录 canon 重复，已清理（205→202 条）；`groups_roster.json` 现 59 个群，三个智源群已入库。
 
 - 2026-11-04 03:59：群补发复查结论 —— `非凡挚友群`（聊天窗显示"你被'吴畏'移出群聊"、底部横幅 Unable to send message in an exited group chat）和 `算力百科|DeepSeek前瞻12群`（搜索索引已不再返回该群，与被移出/解散吻合）**都已无法发送**；`AI应用实训课-学习答疑服务群` 只剩 9 人。三个群已从 `groups_roster.json` 移除（56 群），`sent_groups.json` 历史记录保留。`fav_assfox_20261103T234048`（SDD大结局）最终：56 群 + 524 位星标好友；星标发送被用户叫停，未收到的约 159 人多为 SKIPPED_PRE_SEND/EXCLUDED_UNAVAILABLE/不在通讯录。
+
+- 2026-11-17 20:37 → 11-18 00:39：从当前位置（上次停下的那位好友之后）给所有好友续发 `寒武纪在VLA训练上是否能打？黑客松上见真章！`（campaign `fav_assfox_20261117T174341`），用 `WX_START_MODE=from-current python3 /tmp/wx_send_all.py <log>`（batch_v2 全员、自动重启）。
+  - 本活动账本 **2670 人 `SEND_CLICKED`**（星标 566 + 非星标 2104），14 `UNCERTAIN`，无重复 wxid。走到列表底部（`scroll_no_change`）结束。
+  - Contacts 列表结构：顶部 Starred 分区按字母列出全部星标好友，下面 A–Z 段**不再重复星标好友**——所以"从头走一遍"自然是先星标、后非星标，不用分两轮。
+  - 起点那位好友两次 `SKIPPED_PRE_SEND`，未发。最后一轮另有 37 `SKIPPED_PRE_SEND`、11 名字不可读、5 不可用、2 非普通、1 禁发名单、1 自己。
+  - 修 `batch_v2.finish_batch`：被 Stop 打断的那一行没有 `outcome` 会抛 `KeyError` → 不写 result.json → 守护脚本误记"0 行"（连续 5 次会提前退出）；现记为 `INTERRUPTED`。
+  - 偶发：起步时点收藏图标没生效（界面停在聊天页）→ `favorites view not at default/top`，重试即恢复。
+  - 坑：`pkill -f wx_send_all.py` / `pgrep -f "batch_v2.py --send"` 会匹配到执行它的 bash 自身（命令行含同一字符串），把自己的 shell 杀掉；用 `pgrep -f '^python3.*batch_v2'` 之类锚定。
+
+- 2026-11-18 02:17 → 07:16：重扫全部非星标好友，对 2026-10-01 以来对方主动发过消息的加星（`star_v1.py --star`，守护 `/tmp/wx_star_scan.py 0 <log>`，从顶部起，Starred 分区读到 Unstar 直接跳过约 1.2 s/人，非星标约 7 s/人）。
+  - **新加星标 63 人**，星标账本 `p1_live/ledger_star_assfox.sqlite3` 现共 805 条 `STARRED`。1 人 `STAR_UNVERIFIED`（点了 Starred 但核对仍是未星标，未重试）。
+  - 绝大多数为 `OWNER_ONLY`（只有自己发过，对方没回）；另有约 27 `SKIPPED_PRE_SEND`、18 `NO_MESSAGES`（本地无聊天记录）。
+  - 每次加星后列表重排 → `page overlap not established` → 守护脚本 `--from-current` 续扫，共 22 轮；期间微信主窗口短暂消失一次（窗口重建，id 变为 `0x2800032`），重试即恢复。
+  - 走到列表末尾后 `--from-current` 会跳回 Z 段反复重扫（选中行回落），守护脚本"连续 3 次同一行"会退回 `from-top` 重扫几小时 —— 到末尾（数字开头的名字之后只剩不可读名）就手动停掉：`pkill -f '^python3 /tmp/wx_star_scan.py'` 再 `pkill -TERM -f '^python3 -I star_v1.py'`。
+
+- 2026-11-18 16:22 → 20:45：给**所有星标好友**发新收藏 `国产卡H在VLA训练上是否能打？黑客松上见真章！`（昨天寒武纪那篇的脱敏版，campaign `fav_assfox_20261118T162230`），**每人发完链接立刻在同一聊天发文字**（规则 2.5.1）`昨天的文章应厂商要求撤回了，这次是脱敏版的`。
+  - 新增：`send_text` 等方法从 `send_groups` 移到 `batch_v2.BatchEngine`，`batch_v2.py` / `send_starred.py` / `send_groups.py` 都支持 `--text "…"` / `--text-file FILE`（文字放 `p1_live/followup_text.txt`，已忽略）。发完文字后用 `text_done` 新帧继续，否则会 `stale frame/epoch`。
+  - 守护 `/tmp/wx_send_starred_text.py <log>`（`WX_START_MODE=from-current` 续跑），默认只走 Starred 分区，到 `A` 字母头即结束。
+  - 结果：账本 **644 人 `SEND_CLICKED`**，每人文字都 `SENT` 且在聊天里核对到（verified）。第一轮 251 人后微信主窗口消失（被收到托盘），停下等用户恢复，第二轮从断点之后跑完 393 人；第二轮另有 6 个 `SKIPPED_PRE_SEND`（名单见 `evidence/batch_20261118T190950_send/result.json`），未发。
