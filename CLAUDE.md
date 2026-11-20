@@ -151,3 +151,7 @@ Host github.com
   - 新增：`send_text` 等方法从 `send_groups` 移到 `batch_v2.BatchEngine`，`batch_v2.py` / `send_starred.py` / `send_groups.py` 都支持 `--text "…"` / `--text-file FILE`（文字放 `p1_live/followup_text.txt`，已忽略）。发完文字后用 `text_done` 新帧继续，否则会 `stale frame/epoch`。
   - 守护 `/tmp/wx_send_starred_text.py <log>`（`WX_START_MODE=from-current` 续跑），默认只走 Starred 分区，到 `A` 字母头即结束。
   - 结果：账本 **644 人 `SEND_CLICKED`**，每人文字都 `SENT` 且在聊天里核对到（verified）。第一轮 251 人后微信主窗口消失（被收到托盘），停下等用户恢复，第二轮从断点之后跑完 393 人；第二轮另有 6 个 `SKIPPED_PRE_SEND`（名单见 `evidence/batch_20261118T190950_send/result.json`），未发。
+
+- 2026-11-19 18:02 → 21:12：新收藏 `【怀客松02补水队】重建3D视野！让机器人看得更准`（campaign `fav_assfox_20261119T180210`），先群后星标，每个会话链接后立刻发文字 `这支队伍的解题思路很有创意`。
+  - 群：`--roster roster_1119.json`（`groups_roster.json` 68 群 ∪ `sent_groups.json`/`all_recorded_groups.json` 里多出的 5 个，去掉 3 个已确认失效的）+ `--text-file text_1119.txt`。首轮 63/73，`WX_INFO_WAIT=12` 用 `--only` 重试 9 个再补 2 → **65 群**。余下 3 个 `NOT_A_GROUP`、2 个 `INFO_PANEL_UNREAD`（疑已退群）、2 个 `SEARCH_FAILED`（疑改名）。
+  - 星标：`/tmp/wx_starred_1119.py`（`wx_send_starred_text.py` 换文字文件/状态路径），群跑完后自动接上。**645 人**链接+文字全部核对到；7 `SKIPPED_PRE_SEND`、1 禁发名单。中途微信主窗口又消失一次，等用户恢复后 `WX_START_MODE=from-current` 续跑。
